@@ -1,0 +1,8 @@
+
+    [deluge.plugin.core]
+    LocalBFF = localbff:CorePlugin
+    [deluge.plugin.gtkui]
+    LocalBFF = localbff:GtkUIPlugin
+    [deluge.plugin.web]
+    LocalBFF = localbff:WebUIPlugin
+    
