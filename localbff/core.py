@@ -68,3 +68,31 @@ class Core(CorePluginBase):
     def get_config(self):
         """Returns the config dictionary"""
         return self.config.config
+
+    @export
+    def update_cache(self, content_directories):
+        pass
+
+
+    @export
+    def add_new_metafile(self, torrent_id):
+        pass
+
+
+    @export
+    def find_potential_matches(self, torrent_id):
+        return {'a': 'bitch'}
+
+
+    @export
+    def relink(self, torrent_id):
+        """Relink this torrent ID to a positive match if one exists"""
+        # 1. Find the potential matches for this file
+        import datetime
+        with open("/home/evil/localbff_core_relink", "a") as f:
+          f.write("Time: {0}\n".format(datetime.datetime.now()))
+          f.write("torrent_id: {0}\n".format(torrent_id))
+
+        print("torrent_id: {0}".format(torrent_id))
+        return 42
+
