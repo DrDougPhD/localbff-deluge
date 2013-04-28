@@ -280,7 +280,19 @@ Deluge.plugins.LocalBFFPlugin = Ext.extend(Deluge.Plugin, {
     		this.tmSep = deluge.menus.torrent.add({xtype:'menuseparator'});
 
     		this.tm = deluge.menus.torrent.add({
-      			text: _('Relink and seed')
+      			text: _('Relink and seed'),
+      			label: 'Reconnect torrrent to payload if it exists',
+      			handler: function(item, e) {
+      			    var selected_torrent_ids = deluge.torrents.getSelectedIds();
+      			    
+      			    // Iterate over each selected torrent, and fire off a relink
+      			    //  operation for the selected torrent.
+      			    Ext.each(selected_torrent_ids, function(id, i) {
+      			      console.log("Torrent ID: " + id);
+      			      deluge.client.localbff.relink(292)
+      			    });
+      			},
+      			scope: this
     		});
 	}
 });
