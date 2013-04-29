@@ -119,5 +119,10 @@ class Core(CorePluginBase):
           else:
             f.write("Something went wrong with writing metafile out")
             print("Something went wrong with writing metafile out")
+
+          f.write("Torrent info: {0}".format(current_torrent.torrent_info))
+          print("Torrent info: {0}".format(current_torrent.torrent_info))
+          f.write("{0}".format(dir(current_torrent.torrent_info)))
+          print("{0}".format(dir(current_torrent.torrent_info)))
         return 42
 

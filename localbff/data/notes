@@ -1,0 +1,27 @@
+deluge.core.torrent.force_recheck()
+Forces a recheck of the torrents pieces
+
+deluge.core.torrent.get_files()
+Returns a list of files this torrent contains
+Example: get_files() := [{'index': 0, 'size': 52328448L, 'offset': 0L, 'path': u'dsl-4.4.10.iso'}]
+
+deluge.core.torrent.rename_files(filenames)
+Renames files in the torrent. ‘filenames’ should be a list of (index, filename) pairs.
+
+deluge.core.torrent.rename_folder(folder, new_folder)
+Renames a folder within a torrent. This basically does a file rename on all of the folders children.
+
+deluge.core.torrent.resume()
+Resumes this torrent
+
+deluge.core.torrent.set_status_message(message)
+
+==============================================================================
+import deluge.component as component
+component.get("EventManager").register_event_handler("TorrentAddedEvent", self.post_torrent_add)
+
+==============================================================================
+deluge.ui.common.TorrentInfo, in the common.py file.
+or, from the deluge.core.torrent, which has these properties:
+
+['__class__', '__delattr__', '__dict__', '__doc__', '__format__', '__getattribute__', '__hash__', '__init__', '__module__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__', '__subclasshook__', '__weakref__', 'add_node', 'add_tracker', 'add_url_seed', 'comment', 'creation_date', 'creator', 'file_at', 'file_at_offset', 'files', 'hash_for_piece', 'info_hash', 'map_block', 'map_file', 'metadata', 'metadata_size', 'name', 'nodes', 'num_files', 'num_pieces', 'piece_length', 'piece_size', 'priv', 'rename_file', 'total_size', 'trackers']
