@@ -1,5 +1,5 @@
 /*
-Doug: Tuesday, 28 April 2013 at 16:41
+Doug: Tuesday, 28 April 2013 at 18:35
 Script: localbff.js
     The client-side javascript code for the LocalBFF plugin.
 
@@ -289,7 +289,7 @@ Deluge.plugins.LocalBFFPlugin = Ext.extend(Deluge.Plugin, {
       			    //  operation for the selected torrent.
       			    Ext.each(selected_torrent_ids, function(id, i) {
       			      console.log("Torrent ID: " + id);
-      			      deluge.client.localbff.relink(292)
+      			      deluge.client.localbff.relink(id)
       			    });
       			},
       			scope: this

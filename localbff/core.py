@@ -89,10 +89,35 @@ class Core(CorePluginBase):
         """Relink this torrent ID to a positive match if one exists"""
         # 1. Find the potential matches for this file
         import datetime
+        core = component.get("Core")
+        current_torrent = core.torrentmanager.torrents[torrent_id]
+
         with open("/home/evil/localbff_core_relink", "a") as f:
           f.write("Time: {0}\n".format(datetime.datetime.now()))
           f.write("torrent_id: {0}\n".format(torrent_id))
+          print("torrent_id: {0}".format(torrent_id))
 
-        print("torrent_id: {0}".format(torrent_id))
+          f.write("filename := {0}".format(current_torrent.filename))
+          print("filename := {0}".format(current_torrent.filename))
+
+          f.write("get_files() := {0}".format(current_torrent.get_files()))
+          print("get_files() := {0}".format(current_torrent.get_files()))
+          current_torrent.write_torrentfile()
+
+          import os
+          metafile_dir = os.path.join(
+            deluge.configmanager.get_config_dir(),
+            "state"
+          )
+          metafile_path = os.path.join(
+            metafile_dir,
+            "{0}.torrent".format(torrent_id)
+          )
+          if os.path.isfile(metafile_path):
+            f.write('Torrent file written to {0}'.format(metafile_path))
+            print("Torrent file written to {0}".format(metafile_path))
+          else:
+            f.write("Something went wrong with writing metafile out")
+            print("Something went wrong with writing metafile out")
         return 42
 
