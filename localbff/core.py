@@ -48,7 +48,8 @@ from deluge.core.rpcserver import export
 #from localbff.ContentDirectoryCache import getAllFilesInContentDirectories
 
 DEFAULT_PREFS = {
-    "test":"NiNiNi"
+    "contentDirectories": [],
+    "defaultAction": 0,
 }
 
 class Core(CorePluginBase):
@@ -79,8 +80,13 @@ class Core(CorePluginBase):
     def add_directory(self, directory):
         """Adds a new Content Directory to the configuration"""
         print("core.add_directory('{0}')".format(directory))
-        #self.config['contentDirectories'].append(directory)
-        #self.config.save()
+        self.config['contentDirectories'].append(directory)
+        self.config.save()
+
+    @export
+    def get_directories(self):
+        """Retrieve a list of pre-defined content directories"""
+        return self.config['contentDirectories']
 
     @export
     def update_cache(self, content_directories):
@@ -105,7 +111,10 @@ class Core(CorePluginBase):
         #  matches.
 
         # Return the number of potential matches for each payload file.
-        return {'a/payload/file/': 4}
+        return {
+          'a/payload/file': 4,
+          'another/payload/file': 9
+        }
 
 
     @export

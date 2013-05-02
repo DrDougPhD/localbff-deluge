@@ -77,6 +77,7 @@ Deluge.ux.LocalBFFTab = Ext.extend(Ext.ux.tree.TreeGrid, {
 
     if(this.torrentId != torrentId)
     {
+      this.clear();
       this.torrentId = torrentId;
       // {'a/payload/file': 4}
       //var potentialMatches = deluge.client.localbff.find_potential_matches(torrentId); 
@@ -482,9 +483,9 @@ Deluge.ux.preferences.LocalBFFPage = Ext.extend(Ext.Panel, {
 	updateDirectories: function() {
 
 		// calls the python core method to get directories from plugin's config
-	    	deluge.client.localbff.get_directories({
-			success: function(directories) {
-				this.list.getStore().loadData(directories);
+    deluge.client.localbff.get_directories({
+      success: function(directories) {
+        this.list.getStore().loadData(directories);
 			},
 			scope: this
 		});
@@ -556,7 +557,21 @@ Deluge.plugins.LocalBFFPlugin = Ext.extend(Deluge.Plugin, {
     		this.tmSep = deluge.menus.torrent.add({xtype:'menuseparator'});
 
     		this.tm = deluge.menus.torrent.add({
-      			text: _('Relink and seed')
+      			text: _('Relink and seed'),
+            handler: function(item, e) {
+              var selected_torrent_ids = deluge.torrents.getSelectedIds();
+
+              Ext.each(selected_torrent_ids, function(id, i) {
+                console.log("Torrent ID: " + id);
+                deluge.client.localbff.relink(id, {
+                  success: function() {
+                    deluge.ui.update();
+                    console.log("Updating UI");
+                  }
+                })
+              });
+            },
+            scope: this
     		});
 	}
 });
