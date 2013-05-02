@@ -79,27 +79,28 @@ Deluge.ux.LocalBFFTab = Ext.extend(Ext.ux.tree.TreeGrid, {
     {
       this.torrentId = torrentId;
       // {'a/payload/file': 4}
-      var potentialMatches = deluge.client.localbff.find_potential_matches(torrentId);
-      
-      console.log(potentialMatches); 
-      var root = this.getRootNode();
-      add(torrentId, root);
-      root.firstChild.expand();
+      //var potentialMatches = deluge.client.localbff.find_potential_matches(torrentId); 
+      //var root = this.getRootNode();
+      //add(torrentId, root);
+      //root.firstChild.expand();
+
+      deluge.client.localbff.find_potential_matches(torrentId, {
+        success: this.updateMatchInfo,
+        scope: this
+      });      
     }
   },
 
   //Update file match information
-  updateMatchInfo: function(torrentId) {
-    function add(torrentId, parentNode) {
-      parentNode.appendChild(new Ext.tree.TreeNode({
-        filename: torrentId
-        })
-      );
+  updateMatchInfo: function(potential_matches) {
+    for(var f in potential_matches) {
+      var root = this.getRootNode();
+      root.appendChild(new Ext.tree.TreeNode({
+        filename: f,
+        matches: potential_matches[f]
+      }));
+      root.firstChild.expand();
     }
-
-    var root = this.getRootNode();
-    add(torrentId, root);
-    root.firstChild.expand();
   },
 
   //Clear tab of all existing information
@@ -215,7 +216,7 @@ Deluge.ux.EditLocalBFFDirectoryWindow = Ext.extend(Deluge.ux.LocalBFFDirectoryWi
 		var values = this.form.getForm().getFieldValues();
 
 		// calls the python core method to update directory in plugin's config
-		deluge.client.localbff.save_command(this.command.id, values.dir_name {
+		deluge.client.localbff.save_command(this.command.id, values.dir_name, {
 			success: function() {
 				this.fireEvent('directoryedit', this, values.dir_name);
 			},
@@ -421,7 +422,7 @@ Deluge.ux.preferences.LocalBFFPage = Ext.extend(Ext.Panel, {
 			this.panel.getBottomToolbar().items.get(1).disable();
 			this.panel.getBottomToolbar().items.get(3).disable();
 		}
-	}
+	},
 
 	// called when user clicks list view's Add button
 	onAddClick: function() {
