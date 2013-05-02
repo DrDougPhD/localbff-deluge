@@ -1,17 +1,14 @@
 import BitTorrentMetafile
-import ContentDirectoryDao
 import logging
 
 class LocalBitTorrentFileFinder:
-  def __init__(self, fastVerification=False, metafilePath=None, contentDirectory=None, dao=None):
+  def __init__(self, metafilePath, dao, fastVerification=False):
     self.metafilePath = metafilePath
-    self.contentDirectory = contentDirectory
     self.doFastVerification = fastVerification
 
     self.logger = logging.getLogger(__name__)
     self.logger.info("LocalBitTorrentFileFinder initialized")
     self.logger.info("  Metafile path     => " + metafilePath)
-    self.logger.info("  Content directory => " + contentDirectory)
     self.logger.info("  Fast verification => " + str(fastVerification))
     
     self.metafile = None
@@ -26,21 +23,10 @@ Processing metainfo file
     
     self.metafile = BitTorrentMetafile.getMetafileFromPath(self.metafilePath)
   
-  def gatherAllFilesFromContentDirectory(self):
-    self.logger.info("""
-Walking content directory
--------------------------""")
-    
-    self.dao = ContentDirectoryDao.getAllFilesInContentDirectory(self.contentDirectory)
- 
   def connectFilesInMetafileToPossibleMatchesInContentDirectory(self):
     self.logger.info("""
 Finding all file system files that match by size
 ------------------------------------------------""")
-    
-    if self.dao == None:
-      self.gatherAllFilesFromContentDirectory()
-    
     self.files = self.metafile.files
     
     for payloadFile in self.files:

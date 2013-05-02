@@ -42,6 +42,8 @@ from deluge.plugins.pluginbase import CorePluginBase
 import deluge.component as component
 import deluge.configmanager
 from deluge.core.rpcserver import export
+from localbff.LocalBitTorrentFileFinder import LocalBitTorrentFileFinder 
+from localbff.ContentDirectoryCache import getAllFilesInContentDirectories
 
 DEFAULT_PREFS = {
     "test":"NiNiNi"
@@ -50,6 +52,7 @@ DEFAULT_PREFS = {
 class Core(CorePluginBase):
     def enable(self):
         self.config = deluge.configmanager.ConfigManager("localbff.conf", DEFAULT_PREFS)
+        #self.cache = getAllFilesInContentDirectories(self.config['contentDirectories'])
 
     def disable(self):
         pass
@@ -71,23 +74,44 @@ class Core(CorePluginBase):
 
     @export
     def update_cache(self, content_directories):
+        #self.cache = getAllFilesInContentDirectories(content_directories)
         pass
 
 
     @export
     def add_new_metafile(self, torrent_id):
+        # Determine if potential matches exist.
+        #  If no potential matches exist, proceed with the default action.
         pass
 
 
     @export
     def find_potential_matches(self, torrent_id):
-        return {'a': 'bitch'}
+        # Grab the torrent from the torrent manager
+
+        # Get the filenames and file sizes of each payload file
+
+        # Iterate through these files, and query the cache for potential
+        #  matches.
+
+        # Return the number of potential matches for each payload file.
+        return {'a/payload/file/': 4}
 
 
     @export
     def relink(self, torrent_id):
         """Relink this torrent ID to a positive match if one exists"""
-        # 1. Find the potential matches for this file
+        # 1. Find the potential matches for this file.
+        #     If no matches are found, perform the default action.
+
+        # 2. Build the LocalBitTorrentFileFinder object.
+
+        # 3. Query for the positive match for each potential match.
+        #      If there is a match, reconnect the metafile.
+        #      Otherwise, do nothing.
+
+        # 4. If at least one positive match is not found, perform default
+        #     default action.
         import datetime
         core = component.get("Core")
         current_torrent = core.torrentmanager.torrents[torrent_id]

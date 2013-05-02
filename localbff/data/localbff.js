@@ -55,6 +55,11 @@ Deluge.ux.LocalBFFTab = Ext.extend(Ext.ux.tree.TreeGrid, {
       header: _('File'),
       width: 300,
       dataIndex: 'filename'
+    },
+    {
+      header: _('Potential Matches'),
+      width: 150,
+      dataIndex: 'matches'
     }
   ],
 
@@ -77,6 +82,39 @@ Deluge.ux.LocalBFFTab = Ext.extend(Ext.ux.tree.TreeGrid, {
       add(torrentId, root);
       root.firstChild.expand();
     }
+  },
+
+  //Update file match information
+  updateMatchInfo: function(torrentId) {
+    function add(torrentId, parentNode) {
+      parentNode.appendChild(new Ext.tree.TreeNode({
+        filename: torrentId
+        })
+      );
+    }
+
+    var root = this.getRootNode();
+    add(torrentId, root);
+    root.firstChild.expand();
+  },
+
+  //Clear tab of all existing information
+  clear: function() {
+    
+    var root = this.getRootNode();
+    
+    //check if root node has any children
+    if(!root.hasChildNodes()) return;
+
+    //If root has children, erase them
+    root.cascade( 
+      function(node) {
+        var parentNode = node.parentNode;
+        if(!parentNode) return;
+        if(!parentNode.ownerTree) return;
+        parentNode.removeChild(node);
+      }
+    );
   }
  
 });
