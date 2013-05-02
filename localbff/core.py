@@ -36,14 +36,16 @@
 #    this exception statement from your version. If you delete this exception
 #    statement from all source files in the program, then also delete it here.
 #
-
+import os
+print("LocalBFF: May 2nd, 2013 at 16:15")
+print(os.path.abspath(__file__))
 from deluge.log import LOG as log
 from deluge.plugins.pluginbase import CorePluginBase
 import deluge.component as component
 import deluge.configmanager
 from deluge.core.rpcserver import export
-from localbff.LocalBitTorrentFileFinder import LocalBitTorrentFileFinder 
-from localbff.ContentDirectoryCache import getAllFilesInContentDirectories
+#from localbff.LocalBitTorrentFileFinder import LocalBitTorrentFileFinder 
+#from localbff.ContentDirectoryCache import getAllFilesInContentDirectories
 
 DEFAULT_PREFS = {
     "test":"NiNiNi"
@@ -71,6 +73,14 @@ class Core(CorePluginBase):
     def get_config(self):
         """Returns the config dictionary"""
         return self.config.config
+
+
+    @export
+    def add_directory(self, directory):
+        """Adds a new Content Directory to the configuration"""
+        print("core.add_directory('{0}')".format(directory))
+        #self.config['contentDirectories'].append(directory)
+        #self.config.save()
 
     @export
     def update_cache(self, content_directories):
