@@ -43,29 +43,42 @@ Ext.reg('spacer', Ext.ux.form.Spacer);
 Ext.ns('Deluge.ux');
 
 // define plugin details tab
-Deluge.ux.LocalBFFTab = Ext.extend(Ext.Panel, {
+Deluge.ux.LocalBFFTab = Ext.extend(Ext.ux.tree.TreeGrid, {
 	
 	// set defaults for UI settings
 	title: _('LocalBFF'),
 
-  columns: [{ header: _('Filename'), width: 300, dataIndex: 'filename'}],
+  rootVisible: false,
 
-	constructor: function() {
-		Deluge.ux.LocalBFFTab.superclass.constructor.call(this);
+  columns: [
+    {
+      header: _('File'),
+      width: 300,
+      dataIndex: 'filename'
+    }
+  ],
 
-    this.progressBar = this.add({
-      xtype: 'progress',
-      cls: 'x-deluge-status-progressbar'
-    });
-	},
+  initComponent: function() {
+    Deluge.ux.LocalBFFTab.superclass.initComponent.call(this);
+    this.setRootNode(new Ext.tree.TreeNode({text: 'Files'}) );
+  },
 
   update: function(torrentId) {
-    console.log(torrentId);
-  }
+    function add(torrentId, parentNode) {
+      parentNode.appendChild(new Ext.tree.TreeNode({
+        filename: torrentId
+      }));
+    }
 
-  //onRender: function(ct, position) {
-    //Deluge.details.LocalBFFTab.superclass.onRender.call(this, ct, position);
-  //}
+    if(this.torrentId != torrentId)
+    {
+      this.torrentId = torrentId;
+      var root = this.getRootNode();
+      add(torrentId, root);
+      root.firstChild.expand();
+    }
+  }
+ 
 });
 
 // specify Deluge preferences namespace
