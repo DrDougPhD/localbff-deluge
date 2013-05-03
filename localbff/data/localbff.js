@@ -218,17 +218,11 @@ Deluge.ux.EditLocalBFFDirectoryWindow = Ext.extend(Deluge.ux.LocalBFFDirectoryWi
     
     // Edit the directory
     deluge.client.localbff.edit_directory(this.directory_to_edit, edited_directory, {
-      success: this.hide,
+      success: function() {
+				this.fireEvent('directoryedit', this, edited_directory);
+      },
       scope: this
     });
-
-		// calls the python core method to update directory in plugin's config
-		/*deluge.client.localbff.save_command(this.command.id, values.dir_name, {
-			success: function() {
-				this.fireEvent('directoryedit', this, values.dir_name);
-			},
-			scope: this
-		});*/
 
 		// close dialog
 		this.hide();
@@ -452,9 +446,7 @@ Deluge.ux.preferences.LocalBFFPage = Ext.extend(Ext.Panel, {
 		// if Add Directory dialog is not currently active, create new dialog
 		if (!this.addWin) {
 			this.addWin = new Deluge.ux.AddLocalBFFDirectoryWindow();
-			this.addWin.on('directoryadd', function() {
-				this.updateDirectories();
-			}, this);
+			this.addWin.on('directoryadd', this.updateDirectories, this);
 		}
 
 		// display new dialog
@@ -476,9 +468,7 @@ Deluge.ux.preferences.LocalBFFPage = Ext.extend(Ext.Panel, {
 		// if Edit Directory dialog is not currently active, create new dialog
 		if (!this.editWin) {
 			this.editWin = new Deluge.ux.EditLocalBFFDirectoryWindow();
-			this.editWin.on('directoryedit', function() {
-				this.updateCommands();
-			}, this);
+			this.editWin.on('directoryedit', this.updateDirectories, this);
 		}
 
 		// display new dialog, populated with the selected directory information
