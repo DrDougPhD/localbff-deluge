@@ -417,7 +417,7 @@ Deluge.ux.preferences.LocalBFFPage = Ext.extend(Ext.Panel, {
 		});
 
 		// set onPreferencesShow function to trigger on show event
-      		deluge.preferences.on('show', this.onPreferencesShow, this);
+    deluge.preferences.on('show', this.onPreferencesShow, this);
 	},
 
 	// called when preferences page for plugin is displayed
@@ -451,15 +451,6 @@ Deluge.ux.preferences.LocalBFFPage = Ext.extend(Ext.Panel, {
 
 		// display new dialog
 		this.addWin.show();
-	},
-
-	// called when user adds a directory to the plugin's config
-	onDirectoryAdded: function(win, dir) {
-
-		// adds directory into directory list in preferences UI
-		var record = new this.list.getStore().recordType({
-			directory: dir
-		});
 	},
 
 	// called when user clicks list view's Edit button
