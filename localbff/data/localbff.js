@@ -481,13 +481,11 @@ Deluge.ux.preferences.LocalBFFPage = Ext.extend(Ext.Panel, {
 
 	// called when user clicks list view's Remove button
 	onRemoveClick: function() {
-
-    console.log("removing directory, line 484ish"); 
 		// get selected directory from preferences UI
-		var record = this.list.getSelectedRecords()[0];
+		var dir_to_remove = this.list.getSelectedRecords()[0].get('directory');
 
 		// call the python core method to remove directory from plugin's config
-		deluge.client.localbff.remove_directory(record.id, {
+		deluge.client.localbff.remove_directory(dir_to_remove, {
 			success: function() {
 				this.updateDirectories();
 			},
