@@ -107,6 +107,16 @@ class Core(CorePluginBase):
           pass
 
     @export
+    def set_default_action(self, default_action_id):
+        """Set the ID of the default action"""
+        self.config['defaultAction'] = default_action_id
+        self.config.save()
+
+    @export
+    def get_default_action(self):
+        return self.config['defaultAction']
+
+    @export
     def update_cache(self, content_directories):
         #self.cache = getAllFilesInContentDirectories(content_directories)
         pass
