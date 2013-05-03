@@ -202,11 +202,11 @@ Deluge.ux.EditLocalBFFDirectoryWindow = Ext.extend(Deluge.ux.LocalBFFDirectoryWi
 		Deluge.ux.EditLocalBFFDirectoryWindow.superclass.show.call(this);
 
 		// set dialog's directory object to selected directory
-		this.directory = directory;
+		this.directory_to_edit = directory.get('directory');
 
 		// populate form fields with directory information
 		this.form.getForm().setValues({
-			dir_name: directory.get('directory')
+			dir_name: this.directory_to_edit 
 		});
 	},
 
@@ -214,15 +214,21 @@ Deluge.ux.EditLocalBFFDirectoryWindow = Ext.extend(Deluge.ux.LocalBFFDirectoryWi
 	onSaveClick: function() {
 
 		// retrieve values from forms in dialog
-		var values = this.form.getForm().getFieldValues();
+		var edited_directory = this.form.getForm().getFieldValues().dir_name;
+    
+    // Edit the directory
+    deluge.client.localbff.edit_directory(this.directory_to_edit, edited_directory, {
+      success: this.hide,
+      scope: this
+    });
 
 		// calls the python core method to update directory in plugin's config
-		deluge.client.localbff.save_command(this.command.id, values.dir_name, {
+		/*deluge.client.localbff.save_command(this.command.id, values.dir_name, {
 			success: function() {
 				this.fireEvent('directoryedit', this, values.dir_name);
 			},
 			scope: this
-		});
+		});*/
 
 		// close dialog
 		this.hide();
@@ -486,30 +492,23 @@ Deluge.ux.preferences.LocalBFFPage = Ext.extend(Ext.Panel, {
 
 		// call the python core method to remove directory from plugin's config
 		deluge.client.localbff.remove_directory(dir_to_remove, {
-			success: function() {
-				this.updateDirectories();
-			},
-			scope: this
+			success: this.updateDirectories,
+      scope: this
 		});
 	},
 
 	// fetches directories from plugin's config and reloads table in preferences UI
 	updateDirectories: function() {
-
 		// calls the python core method to get directories from plugin's config
     deluge.client.localbff.get_directories({
       success: function(directories) {
+        this.list.getStore().removeAll();
         var DirectoryEntry = this.list.getStore().recordType;
-        console.log("Content directories: ");
-        console.log(directories);
-
-        for(var dir in directories) {
+        for(var i=0; i<directories.length; i++){
           this.list.getStore().add(new DirectoryEntry({
-            directory: directories[dir]
+            directory: directories[i]
           }));
         }
-
-        //this.list.getStore().removeAll();
 			},
 			scope: this
 		});

@@ -80,13 +80,31 @@ class Core(CorePluginBase):
     def add_directory(self, directory):
         """Adds a new Content Directory to the configuration"""
         print("core.add_directory('{0}')".format(directory))
-        self.config['contentDirectories'].append(directory)
-        self.config.save()
+        if not directory in self.config['contentDirectories']:
+          self.config['contentDirectories'].append(directory)
+          self.config.save()
 
     @export
     def get_directories(self):
         """Retrieve a list of pre-defined content directories"""
         return self.config['contentDirectories']
+
+    @export
+    def remove_directory(self, dir_to_remove):
+        """Remove the directory if it exists in the configuration"""
+        if dir_to_remove in self.config['contentDirectories']:
+          self.config['contentDirectories'].remove(dir_to_remove)
+          self.config.save()
+
+    @export
+    def edit_directory(self, old_dir, new_dir):
+        """Edit the value of the provided directory"""
+        try:
+          i = self.config['contentDirectories'].index(old_dir)
+          self.config['contentDirectories'][i] = new_dir
+          self.config.save()
+        except:
+          pass
 
     @export
     def update_cache(self, content_directories):
