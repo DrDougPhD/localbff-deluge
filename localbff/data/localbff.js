@@ -271,6 +271,20 @@ Deluge.ux.AddLocalBFFDirectoryWindow = Ext.extend(Deluge.ux.LocalBFFDirectoryWin
 
 });
 
+Deluge.ux.RemoveLocalBFFDirectoryWindow = Ext.extend(Deluge.ux.LocalBFFDirectoryWindowBase, {
+  title: _('Remove'),
+
+  initComponent: function() {
+    Deluge.ux.EditLocalBFFCommandWindow.superclass.initComponent.call(this);
+
+    this.addButton(_('Remove'), this.onRemoveClick, this);
+  },
+
+  onRemoveClick: function() {
+    console.log("Removing directory");
+  }
+});
+
 // specify Deluge preferences namespace
 Ext.ns('Deluge.ux.preferences');
 
@@ -306,6 +320,7 @@ Deluge.ux.preferences.LocalBFFPage = Ext.extend(Ext.Panel, {
 			singleSelect: true,
 			autoExpandColumn: 'directory'
 		});		
+    this.list.on('selectionchange', this.onSelectionChange, this);
 
 		// add form to Preferences UI to contain plugin's UI elements
 		this.form = this.add({
@@ -366,7 +381,7 @@ Deluge.ux.preferences.LocalBFFPage = Ext.extend(Ext.Panel, {
 		this.form.add({
 			xtype: 'box',
 			autoEl: {
-				cn: '<p>This button forces the plugin cache to clear and re-initialize.</p><br>'
+				cn: '<p>This button forces the Content Directory cache to clear and re-initialize.</p><br>'
 			}
 		});		
 
@@ -467,6 +482,7 @@ Deluge.ux.preferences.LocalBFFPage = Ext.extend(Ext.Panel, {
 	// called when user clicks list view's Remove button
 	onRemoveClick: function() {
 
+    console.log("removing directory, line 484ish"); 
 		// get selected directory from preferences UI
 		var record = this.list.getSelectedRecords()[0];
 
@@ -485,7 +501,17 @@ Deluge.ux.preferences.LocalBFFPage = Ext.extend(Ext.Panel, {
 		// calls the python core method to get directories from plugin's config
     deluge.client.localbff.get_directories({
       success: function(directories) {
-        this.list.getStore().loadData(directories);
+        var DirectoryEntry = this.list.getStore().recordType;
+        console.log("Content directories: ");
+        console.log(directories);
+
+        for(var dir in directories) {
+          this.list.getStore().add(new DirectoryEntry({
+            directory: directories[dir]
+          }));
+        }
+
+        //this.list.getStore().removeAll();
 			},
 			scope: this
 		});
