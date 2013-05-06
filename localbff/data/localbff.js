@@ -529,6 +529,7 @@ Deluge.ux.preferences.LocalBFFPage = Ext.extend(Ext.Panel, {
 
 	// called when user clicks the Force Update Cache button
 	onForceUpdate: function() {
+    deluge.client.localbff.update_cache();
 	},
 
 	// called when user selects the Default Action for the plugin

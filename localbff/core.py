@@ -120,8 +120,8 @@ class Core(CorePluginBase):
         return self.config['defaultAction']
 
     @export
-    def update_cache(self, content_directories):
-        self.cache = getAllFilesInContentDirectories(content_directories)
+    def update_cache(self):
+        self.cache = getAllFilesInContentDirectories(self.config['contentDirectories'])
 
 
     @export
@@ -133,19 +133,22 @@ class Core(CorePluginBase):
 
     @export
     def find_potential_matches(self, torrent_id):
+        print("find_potential_matches({0})".format(torrent_id))
         # Grab the torrent from the torrent manager
+        current_torrent = component.get("Core").torrentmanager.torrents[torrent_id]
 
         # Get the filenames and file sizes of each payload file
-
+        files = current_torrent.get_files()
+        potential_match_data = {}
+        
         # Iterate through these files, and query the cache for potential
         #  matches.
+        for f in files:
+            potential_matches = self.cache.getAllFilesOfSize(f['size'])
+            potential_match_data[f['path']] = len(potential_matches)
 
         # Return the number of potential matches for each payload file.
-        print("Find potential matches for metafile: {0}".format(torrent_id))
-        return {
-          'a/payload/file': 4,
-          'another/payload/file': 9
-        }
+        return potential_match_data
 
 
     @export
@@ -172,10 +175,10 @@ class Core(CorePluginBase):
           f.write("torrent_id: {0}\n".format(torrent_id))
           print("torrent_id: {0}".format(torrent_id))
 
-          f.write("filename := {0}".format(current_torrent.filename))
+          f.write("filename := {0}\n".format(current_torrent.filename))
           print("filename := {0}".format(current_torrent.filename))
 
-          f.write("get_files() := {0}".format(current_torrent.get_files()))
+          f.write("get_files() := {0}\n".format(current_torrent.get_files()))
           print("get_files() := {0}".format(current_torrent.get_files()))
           current_torrent.write_torrentfile()
 
@@ -189,15 +192,15 @@ class Core(CorePluginBase):
             "{0}.torrent".format(torrent_id)
           )
           if os.path.isfile(metafile_path):
-            f.write('Torrent file written to {0}'.format(metafile_path))
+            f.write('Torrent file written to {0}\n'.format(metafile_path))
             print("Torrent file written to {0}".format(metafile_path))
           else:
-            f.write("Something went wrong with writing metafile out")
+            f.write("Something went wrong with writing metafile out\n")
             print("Something went wrong with writing metafile out")
 
-          f.write("Torrent info: {0}".format(current_torrent.torrent_info))
+          f.write("Torrent info: {0}\n".format(current_torrent.torrent_info))
           print("Torrent info: {0}".format(current_torrent.torrent_info))
-          f.write("{0}".format(dir(current_torrent.torrent_info)))
+          f.write("{0}\n".format(dir(current_torrent.torrent_info)))
           print("{0}".format(dir(current_torrent.torrent_info)))
         return 42
 
