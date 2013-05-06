@@ -44,6 +44,51 @@ def get_resource(filename):
 # Due to weird importing issues that I have no time to investigate, the whole of
 #  the LocalBFF library is stored below.
 
+
+###############################################################################
+### utils.py
+import copy
+import os
+from binascii import b2a_base64
+
+def isSingleFileMetafile( metafileDict ):
+  return 'length' in metafileDict['info'].keys()
+
+def pieceOnlyHasOneFile( piece, file ):
+  fileBeginsBeforePieceBegins = file.streamOffset <= piece.streamOffset
+  fileEndsAfterPieceEnds = file.endingOffset >= piece.endingOffset
+  return fileBeginsBeforePieceBegins and fileEndsAfterPieceEnds
+
+def fileBeginsBeforePieceAndEndsInsidePiece(piece, file):
+  fileBeginsBeforePiece = file.streamOffset < piece.streamOffset
+  fileEndsInsidePiece = file.endingOffset > piece.streamOffset and file.endingOffset < piece.endingOffset
+  return fileBeginsBeforePiece and fileEndsInsidePiece
+
+def fileBeginsInsidePieceAndEndsAfterPieceEnds(piece, file):
+  fileBeginsInsidePiece = file.streamOffset > piece.streamOffset and file.streamOffset < piece.endingOffset
+  fileEndsAfterPieceEnds = file.endingOffset > piece.endingOffset
+  return fileBeginsInsidePiece and fileEndsAfterPieceEnds
+
+def fileIsCompletelyHeldInsidePiece(piece, file):
+  fileBeginsInsidePiece = file.streamOffset >= piece.streamOffset
+  fileEndsInsidePiece = file.endingOffset <= piece.endingOffset
+  return fileBeginsInsidePiece and fileEndsInsidePiece
+
+def prunedMetainfoDict(metainfoDict):
+  pruned = copy.deepcopy(metainfoDict)
+  pruned['announce'] = 'PRUNED FOR PRIVACY REASONS'
+  pruned['comment'] = 'PRUNED FOR PRIVACY REASONS'
+  return pruned
+
+def isFileReadible(path):
+  return os.access(path, os.R_OK)
+
+def binToBase64(binary):
+ return b2a_base64(binary)[:-1]
+### utils.py
+###############################################################################
+
+
 ###############################################################################
 ### ContentDirectoryCache.py
 import os
@@ -247,50 +292,6 @@ class PayloadFile:
   def getMatchedPathFromContentDirectory(self):
     return self.matchedFilePath
 ### PayloadFile.py
-###############################################################################
-
-
-###############################################################################
-### utils.py
-import copy
-import os
-from binascii import b2a_base64
-
-def isSingleFileMetafile( metafileDict ):
-  return 'length' in metafileDict['info'].keys()
-
-def pieceOnlyHasOneFile( piece, file ):
-  fileBeginsBeforePieceBegins = file.streamOffset <= piece.streamOffset
-  fileEndsAfterPieceEnds = file.endingOffset >= piece.endingOffset
-  return fileBeginsBeforePieceBegins and fileEndsAfterPieceEnds
-
-def fileBeginsBeforePieceAndEndsInsidePiece(piece, file):
-  fileBeginsBeforePiece = file.streamOffset < piece.streamOffset
-  fileEndsInsidePiece = file.endingOffset > piece.streamOffset and file.endingOffset < piece.endingOffset
-  return fileBeginsBeforePiece and fileEndsInsidePiece
-
-def fileBeginsInsidePieceAndEndsAfterPieceEnds(piece, file):
-  fileBeginsInsidePiece = file.streamOffset > piece.streamOffset and file.streamOffset < piece.endingOffset
-  fileEndsAfterPieceEnds = file.endingOffset > piece.endingOffset
-  return fileBeginsInsidePiece and fileEndsAfterPieceEnds
-
-def fileIsCompletelyHeldInsidePiece(piece, file):
-  fileBeginsInsidePiece = file.streamOffset >= piece.streamOffset
-  fileEndsInsidePiece = file.endingOffset <= piece.endingOffset
-  return fileBeginsInsidePiece and fileEndsInsidePiece
-
-def prunedMetainfoDict(metainfoDict):
-  pruned = copy.deepcopy(metainfoDict)
-  pruned['announce'] = 'PRUNED FOR PRIVACY REASONS'
-  pruned['comment'] = 'PRUNED FOR PRIVACY REASONS'
-  return pruned
-
-def isFileReadible(path):
-  return os.access(path, os.R_OK)
-
-def binToBase64(binary):
- return b2a_base64(binary)[:-1]
-### utils.py
 ###############################################################################
 
 
@@ -567,7 +568,7 @@ class PayloadPiece:
     self.logger.debug("START: Finding all files contributing to " + self.__str__())
     for payloadFile in allFiles:
       if payloadFile.contributesTo(self):
-        contributingFile = FileContributingToPiece.getFromMetafilePieceAndFileObjects(piece=self, file=payloadFile)
+        contributingFile = getFromMetafilePieceAndFileObjects(piece=self, file=payloadFile)
         self.contributingFiles.addContributingFile( contributingFile )
 
     self.logger.debug("END: Finding all files contributing to " + self.__str__())
@@ -619,11 +620,11 @@ def getMetafileFromBencodedData( bencodedData ):
   module_logger.debug("Decoding metafile into python dictionary")
   metainfoDict = bencode.bdecode( bencodedData )
 
-  prunedMetainfoDict = prunedMetainfoDict(metainfoDict)
+  pruned = prunedMetainfoDict(metainfoDict)
   module_logger.debug('Decoded metainfo content =>\n' +
-    json.dumps(prunedMetainfoDict, indent=2, ensure_ascii=False))
+    json.dumps(pruned, indent=2, ensure_ascii=False))
 
-  return getMetafileFromDict( metainfoDict )
+  return getMetafileFromDict( pruned )
 
 def getMetafileFromDict( metafileDict ):
   module_logger.debug("Converting metafile dictionary to BitTorrentMetafile object")
@@ -685,7 +686,7 @@ class BitTorrentMetafile:
 ###############################################################################
 ### LocalBitTorrentFileFinder.py
 class LocalBitTorrentFileFinder:
-  def __init__(self, metafilePath, dao, fastVerification=False):
+  def __init__(self, metafilePath, fastVerification=False):
     self.metafilePath = metafilePath
     self.doFastVerification = fastVerification
 
@@ -695,7 +696,6 @@ class LocalBitTorrentFileFinder:
     self.logger.info("  Fast verification => " + str(fastVerification))
     
     self.metafile = None
-    self.dao = dao
     self.files = None
     self.percentageMatched = 0.0
   
@@ -705,12 +705,29 @@ Processing metainfo file
 ------------------------""")
     
     self.metafile = getMetafileFromPath(self.metafilePath)
-  
+
+  def connectPayloadFileToPotentialMatches(self, fileIndex, potentialMatches):
+    self.logger.info("""
+Connecting payload file to potential matches
+--------------------------------------------""")
+    if self.files is None:
+      self.files = self.metafile.files
+
+    payloadFile = self.files[fileIndex]
+    self.logger.info("For " + payloadFile.__str__())
+    payloadFile.possibleMatches = potentialMatches
+      
+    self.logger.info("  Number of Possible matches => " + str(len(payloadFile.possibleMatches)))
+    self.logger.info("  Possible file matches => " + "\n    ".join(payloadFile.possibleMatches))
+    self.logger.info("~"*80)
+    
+    self.logger.debug("Filesize-based match reduction of possible matches complete!")
+
+
   def connectFilesInMetafileToPossibleMatchesInContentDirectory(self):
     self.logger.info("""
 Finding all file system files that match by size
 ------------------------------------------------""")
-    self.files = self.metafile.files
     
     for payloadFile in self.files:
       self.logger.info("For " + payloadFile.__str__())

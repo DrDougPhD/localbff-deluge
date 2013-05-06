@@ -156,20 +156,55 @@ class Core(CorePluginBase):
         """Relink this torrent ID to a positive match if one exists"""
         # 1. Find the potential matches for this file.
         #     If no matches are found, perform the default action.
+        # Grab the torrent from the torrent manager
+        current_torrent = component.get("Core").torrentmanager.torrents[torrent_id]
+
+        # Get the filenames and file sizes of each payload file
+        files = current_torrent.get_files()
+        potential_matches = [None for f in files]
+
+        # Iterate through these files, and query the cache for potential
+        #  matches.
+        for f in files:
+          potential_matches[f['index']] = self.cache.getAllFilesOfSize(f['size'])
 
         # 2. Build the LocalBitTorrentFileFinder object.
+        current_torrent.write_torrentfile()
+        import os
+        metafile_dir = os.path.join(
+            deluge.configmanager.get_config_dir(),
+            "state"
+        )
+        metafile_path = os.path.join(
+          metafile_dir,
+          "{0}.torrent".format(torrent_id)
+        )
+        finder = LocalBitTorrentFileFinder(metafilePath=metafile_path, fastVerification=True)
+        finder.processMetafile()
+
+        i = 0
+        for f in potential_matches:
+            finder.connectPayloadFileToPotentialMatches(i, f)
+            i += 1
+            print("Potential matches for file {0} is {1}".format(i, len(f)))
 
         # 3. Query for the positive match for each potential match.
         #      If there is a match, reconnect the metafile.
         #      Otherwise, do nothing.
+        print("Positive matching start...")
+        finder.positivelyMatchFilesInMetafileToPossibleMatches()
 
         # 4. If at least one positive match is not found, perform default
         #     default action.
+        for matchedFile in finder.files:
+          if matchedFile.status == 'MATCH_FOUND':
+            print("{0} => {1}".format(
+              matchedFile.getPathFromMetafile(),
+              matchedFile.getMatchedPathFromContentDirectory()
+            ))
+
         print("Relink payload for metafile: {0}".format(torrent_id))
         import datetime
-        core = component.get("Core")
-        current_torrent = core.torrentmanager.torrents[torrent_id]
-
         with open("/home/evil/localbff_core_relink", "a") as f:
           f.write("Time: {0}\n".format(datetime.datetime.now()))
           f.write("torrent_id: {0}\n".format(torrent_id))
