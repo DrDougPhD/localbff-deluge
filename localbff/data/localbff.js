@@ -48,6 +48,7 @@ Deluge.ux.LocalBFFTab = Ext.extend(Ext.ux.tree.TreeGrid, {
 	// set defaults for UI settings
 	title: _('LocalBFF'),
 
+  autoScroll: true,
   rootVisible: false,
 
   columns: [
@@ -59,7 +60,8 @@ Deluge.ux.LocalBFFTab = Ext.extend(Ext.ux.tree.TreeGrid, {
     {
       header: _('Potential Matches'),
       width: 150,
-      dataIndex: 'matches'
+      dataIndex: 'matches',
+      align: 'right'
     }
   ],
 
