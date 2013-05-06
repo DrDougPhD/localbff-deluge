@@ -196,46 +196,49 @@ class Core(CorePluginBase):
 
         # 4. If at least one positive match is not found, perform default
         #     default action.
+        download_location = current_torrent.get_options()['download_location']
+
+        i = 0
+        renaming_struct = []
         for matchedFile in finder.files:
           if matchedFile.status == 'MATCH_FOUND':
+            matched_path = matchedFile.getMatchedPathFromContentDirectory()
+
+            # A call to current_torrent.rename_file() requires the new relative
+            #  path of the payload file. Since matched_path may be on some
+            #  other hard drive, a relative path from the root/download path
+            #  of the torrent needs to be constructed and fed into rename_file()
+            renamed_path = os.path.relpath(matched_path, download_location)
+            renaming_struct.append((i, renamed_path))
             print("{0} => {1}".format(
               matchedFile.getPathFromMetafile(),
-              matchedFile.getMatchedPathFromContentDirectory()
+              renamed_path
             ))
 
-        print("Relink payload for metafile: {0}".format(torrent_id))
-        import datetime
-        with open("/home/evil/localbff_core_relink", "a") as f:
-          f.write("Time: {0}\n".format(datetime.datetime.now()))
-          f.write("torrent_id: {0}\n".format(torrent_id))
-          print("torrent_id: {0}".format(torrent_id))
+            # For some reason, renaming of a payload file will be rejected if
+            #  the file exists. So let's move the found file so it disappears.
+            os.rename(
+              matched_path,
+              matched_path + "_localbff_tmp_move"
+            )
 
-          f.write("filename := {0}\n".format(current_torrent.filename))
-          print("filename := {0}".format(current_torrent.filename))
+          else:  # No match was found.
+            pass
+          i += 1
 
-          f.write("get_files() := {0}\n".format(current_torrent.get_files()))
-          print("get_files() := {0}".format(current_torrent.get_files()))
-          current_torrent.write_torrentfile()
+        # 5. Apply the renamings and force a recheck on the torrent
+        current_torrent.pause()
+        current_torrent.rename_files(renaming_struct)
 
-          import os
-          metafile_dir = os.path.join(
-            deluge.configmanager.get_config_dir(),
-            "state"
-          )
-          metafile_path = os.path.join(
-            metafile_dir,
-            "{0}.torrent".format(torrent_id)
-          )
-          if os.path.isfile(metafile_path):
-            f.write('Torrent file written to {0}\n'.format(metafile_path))
-            print("Torrent file written to {0}".format(metafile_path))
-          else:
-            f.write("Something went wrong with writing metafile out\n")
-            print("Something went wrong with writing metafile out")
+        # Since the files were moved temporarily to allow for renaming,
+        #  they must be moved back before the force recheck is executed.
+        for matchedFile in finder.files:
+          if matchedFile.status == 'MATCH_FOUND':
+            matched_path = matchedFile.getMatchedPathFromContentDirectory()
+            os.rename(
+              matched_path + "_localbff_tmp_move",
+              matched_path
+            )
 
-          f.write("Torrent info: {0}\n".format(current_torrent.torrent_info))
-          print("Torrent info: {0}".format(current_torrent.torrent_info))
-          f.write("{0}\n".format(dir(current_torrent.torrent_info)))
-          print("{0}".format(dir(current_torrent.torrent_info)))
-        return 42
+        current_torrent.force_recheck()
 
