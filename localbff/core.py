@@ -44,8 +44,8 @@ from deluge.plugins.pluginbase import CorePluginBase
 import deluge.component as component
 import deluge.configmanager
 from deluge.core.rpcserver import export
-#from localbff.LocalBitTorrentFileFinder import LocalBitTorrentFileFinder 
-#from localbff.ContentDirectoryCache import getAllFilesInContentDirectories
+from common import LocalBitTorrentFileFinder 
+from common import getAllFilesInContentDirectories
 
 DEFAULT_PREFS = {
     "contentDirectories": [],
@@ -55,7 +55,7 @@ DEFAULT_PREFS = {
 class Core(CorePluginBase):
     def enable(self):
         self.config = deluge.configmanager.ConfigManager("localbff.conf", DEFAULT_PREFS)
-        #self.cache = getAllFilesInContentDirectories(self.config['contentDirectories'])
+        self.cache = getAllFilesInContentDirectories(self.config['contentDirectories'])
 
     def disable(self):
         pass
@@ -82,6 +82,7 @@ class Core(CorePluginBase):
         print("core.add_directory('{0}')".format(directory))
         if not directory in self.config['contentDirectories']:
           self.config['contentDirectories'].append(directory)
+          self.cache = getAllFilesInContentDirectories(self.config['contentDirectories'])
           self.config.save()
 
     @export
@@ -94,6 +95,7 @@ class Core(CorePluginBase):
         """Remove the directory if it exists in the configuration"""
         if dir_to_remove in self.config['contentDirectories']:
           self.config['contentDirectories'].remove(dir_to_remove)
+          self.cache = getAllFilesInContentDirectories(self.config['contentDirectories'])
           self.config.save()
 
     @export
@@ -102,6 +104,7 @@ class Core(CorePluginBase):
         try:
           i = self.config['contentDirectories'].index(old_dir)
           self.config['contentDirectories'][i] = new_dir
+          self.cache = getAllFilesInContentDirectories(self.config['contentDirectories'])
           self.config.save()
         except:
           pass
@@ -118,15 +121,14 @@ class Core(CorePluginBase):
 
     @export
     def update_cache(self, content_directories):
-        #self.cache = getAllFilesInContentDirectories(content_directories)
-        pass
+        self.cache = getAllFilesInContentDirectories(content_directories)
 
 
     @export
     def add_new_metafile(self, torrent_id):
         # Determine if potential matches exist.
         #  If no potential matches exist, proceed with the default action.
-        pass
+        print("New metafile added: {0}".format(torrent_id))
 
 
     @export
@@ -139,6 +141,7 @@ class Core(CorePluginBase):
         #  matches.
 
         # Return the number of potential matches for each payload file.
+        print("Find potential matches for metafile: {0}".format(torrent_id))
         return {
           'a/payload/file': 4,
           'another/payload/file': 9
@@ -159,6 +162,7 @@ class Core(CorePluginBase):
 
         # 4. If at least one positive match is not found, perform default
         #     default action.
+        print("Relink payload for metafile: {0}".format(torrent_id))
         import datetime
         core = component.get("Core")
         current_torrent = core.torrentmanager.torrents[torrent_id]
