@@ -1,5 +1,5 @@
 /*
-Doug: Thursday, 2 May 2013 at 15:45
+Doug: Monday, 6 May 2013 at 07:55
 Script: localbff.js
     The client-side javascript code for the LocalBFF plugin.
 

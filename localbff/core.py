@@ -56,9 +56,10 @@ class Core(CorePluginBase):
     def enable(self):
         self.config = deluge.configmanager.ConfigManager("localbff.conf", DEFAULT_PREFS)
         self.cache = getAllFilesInContentDirectories(self.config['contentDirectories'])
+        component.get("EventManager").register_event_handler("TorrentAddedEvent", self.add_new_metafile)
 
     def disable(self):
-        pass
+        component.get("EventManager").deregister_event_handler("TorrentAddedEvent", self.add_new_metafile)
 
     def update(self):
         pass
@@ -124,7 +125,6 @@ class Core(CorePluginBase):
         self.cache = getAllFilesInContentDirectories(self.config['contentDirectories'])
 
 
-    @export
     def add_new_metafile(self, torrent_id):
         # Determine if potential matches exist.
         #  If no potential matches exist, proceed with the default action.
