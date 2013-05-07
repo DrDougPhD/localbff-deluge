@@ -44,13 +44,17 @@ from deluge.plugins.pluginbase import CorePluginBase
 import deluge.component as component
 import deluge.configmanager
 from deluge.core.rpcserver import export
-from common import LocalBitTorrentFileFinder 
 from common import getAllFilesInContentDirectories
 
 DEFAULT_PREFS = {
     "contentDirectories": [],
     "defaultAction": 0,
 }
+
+# Default Actions are as follows:
+#   0 => Download Missing Payload, Seed the Rest
+#   1 => Delete BitTorrent
+#   2 => Pause Download
 
 class Core(CorePluginBase):
     def enable(self):
@@ -129,6 +133,44 @@ class Core(CorePluginBase):
         # Determine if potential matches exist.
         #  If no potential matches exist, proceed with the default action.
         print("New metafile added: {0}".format(torrent_id))
+        torrent_manager = component.get("Core").torrentmanager
+        current_torrent = torrent_manager.torrents[torrent_id]
+
+        # Get the filenames and file sizes of each payload file
+        files = current_torrent.get_files()
+
+        # Iterate through these files, and query the cache for potential
+        #  matches.
+        some_files_have_no_potential_matches = False
+        for f in files:
+            potential_matches = self.cache.getAllFilesOfSize(f['size'])
+            num_pot_matches = len(potential_matches)
+            if num_pot_matches == 0:
+              some_files_have_no_potential_matches = True
+
+        if some_files_have_no_potential_matches:
+          print('Some files have no potential matches...')
+          if self.config['defaultAction'] == 0:
+            # If the default action is set to Download, then
+            #  go ahead and attempt to relink the files. If
+            #  there are any positive matches, they will be
+            #  relinked, and the missing ones will be downloaded.
+            print('Default action set to Download, so attempting relink')
+            self.relink(torrent_id)
+
+          if self.config['defaultAction'] == 1:
+            print('Default action set to Deleted, so removing')
+            torrent_manager.remove(torrent_id)
+
+          elif self.config['defaultAction'] == 2:
+            print('Default action set to Pause, so pausing')
+            current_torrent.pause()
+
+        else:
+          # If all of the files have potential matches, then we should
+          #  automatically attempt to relink.
+          print('All files have potential matches! Attemping a relink.')
+          self.relink(torrent_id)
 
 
     @export
@@ -157,7 +199,9 @@ class Core(CorePluginBase):
         # 1. Find the potential matches for this file.
         #     If no matches are found, perform the default action.
         # Grab the torrent from the torrent manager
-        current_torrent = component.get("Core").torrentmanager.torrents[torrent_id]
+        print("Relinking torrent {0}".format(torrent_id))
+        torrent_manager = component.get("Core").torrentmanager
+        current_torrent = torrent_manager.torrents[torrent_id]
 
         # Get the filenames and file sizes of each payload file
         files = current_torrent.get_files()
@@ -179,66 +223,84 @@ class Core(CorePluginBase):
           metafile_dir,
           "{0}.torrent".format(torrent_id)
         )
-        finder = LocalBitTorrentFileFinder(metafilePath=metafile_path, fastVerification=True)
-        finder.processMetafile()
+        from common import match 
+        positive_matches = match(
+          fastVerification=True,
+          metafilePath=metafile_path,
+          potentialMatches=potential_matches
+        )
 
+        # If all files are positively matched, then the torrent should be
+        #  relinked and set to a seeding state.
+        rename_struct = []
+        all_files_positively_matched = True
         i = 0
-        for f in potential_matches:
-            finder.connectPayloadFileToPotentialMatches(i, f)
-            i += 1
-            print("Potential matches for file {0} is {1}".format(i, len(f)))
-
-        # 3. Query for the positive match for each potential match.
-        #      If there is a match, reconnect the metafile.
-        #      Otherwise, do nothing.
-        print("Positive matching start...")
-        finder.positivelyMatchFilesInMetafileToPossibleMatches()
-
-        # 4. If at least one positive match is not found, perform default
-        #     default action.
-        download_location = current_torrent.get_options()['download_location']
-
-        i = 0
-        renaming_struct = []
-        for matchedFile in finder.files:
-          if matchedFile.status == 'MATCH_FOUND':
-            matched_path = matchedFile.getMatchedPathFromContentDirectory()
-
-            # A call to current_torrent.rename_file() requires the new relative
-            #  path of the payload file. Since matched_path may be on some
-            #  other hard drive, a relative path from the root/download path
-            #  of the torrent needs to be constructed and fed into rename_file()
-            renamed_path = os.path.relpath(matched_path, download_location)
-            renaming_struct.append((i, renamed_path))
-            print("{0} => {1}".format(
-              matchedFile.getPathFromMetafile(),
-              renamed_path
-            ))
-
-            # For some reason, renaming of a payload file will be rejected if
-            #  the file exists. So let's move the found file so it disappears.
-            os.rename(
-              matched_path,
-              matched_path + "_localbff_tmp_move"
-            )
-
-          else:  # No match was found.
-            pass
+        for matched_path in positive_matches:
+          if matched_path is None:
+            all_files_positively_matched = False
+          
+          rename_struct.append((i, matched_path))
           i += 1
 
-        # 5. Apply the renamings and force a recheck on the torrent
+        if all_files_positively_matched:
+          print("Positive matches for all files!")
+          self._relink(current_torrent, rename_struct)
+
+        # If there is some file that is not fully matched, then we must check
+        #  the default action as specified by the user.
+        elif self.config['defaultAction'] == 0:
+          print("Some files had no positive matches. Seeding the matches, downloading the rest")
+          # 0 corresponds to Downloading the missing while seeding the present
+          positive_matches = [match for match in rename_struct if match[1] is not None]
+          self._relink(current_torrent, positive_matches)
+
+        elif self.config['defaultAction'] == 1:
+          print("Some files had no positive matches. Deleting torrent.")
+          torrent_manager.remove(torrent_id)
+
+        elif self.config['defaultAction'] == 2:
+          print("Some files had no positive matches. Pausing torrent.")
+          current_torrent.pause()
+
+    def _relink(self, current_torrent, matches):
+        download_location = current_torrent.get_options()['download_location']
+
+        renaming_struct = []
+        for index, match in matches:
+          # A call to current_torrent.rename_file() requires the new relative
+          #  path of the payload file. Since matched_path may be on some
+          #  other hard drive, a relative path from the root/download path
+          #  of the torrent needs to be constructed and fed into rename_file()
+          renamed_path = os.path.relpath(match, download_location)
+          print('Match path: {0}'.format(renamed_path))
+          renaming_struct.append((index, renamed_path))
+
+          # For some reason, renaming of a payload file will be rejected if
+          #  the file exists. So let's move the found file so it disappears.
+          print("Moving to {0}".format(match + "_localbff_tmp_move"))
+          os.rename(
+            match,
+            match + "_localbff_tmp_move"
+          )
+
+        # Apply the renamings and force a recheck on the torrent
+        print("Pausing torrent...")
         current_torrent.pause()
+        print("Renaming files... {0}".format(renaming_struct))
         current_torrent.rename_files(renaming_struct)
 
         # Since the files were moved temporarily to allow for renaming,
         #  they must be moved back before the force recheck is executed.
-        for matchedFile in finder.files:
-          if matchedFile.status == 'MATCH_FOUND':
-            matched_path = matchedFile.getMatchedPathFromContentDirectory()
+        for i, match in matches:
+            print("Moving back to {0}".format(match))
             os.rename(
-              matched_path + "_localbff_tmp_move",
-              matched_path
+              match + "_localbff_tmp_move",
+              match
             )
 
+        print("Forcing recheck...")
         current_torrent.force_recheck()
+        print("Resuming torrent...")
+        current_torrent.resume()
+
 

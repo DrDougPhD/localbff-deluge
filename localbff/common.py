@@ -758,5 +758,26 @@ Matching files in the file system to files in metafile
       self.logger.info(" STATUS       => " + file.status)
       if file.status == "MATCH_FOUND":
         self.logger.info(" MATCH PATH   => " + file.getMatchedPathFromContentDirectory())
+
+
+def match(fastVerification, metafilePath, potentialMatches):
+  finder = LocalBitTorrentFileFinder(metafilePath, fastVerification)
+  finder.processMetafile()
+  
+  i = 0
+  for f in potentialMatches:
+    finder.connectPayloadFileToPotentialMatches(i, f)
+    i += 1
+
+  finder.positivelyMatchFilesInMetafileToPossibleMatches()
+
+  i = 0
+  positive_matches = [None for f in potentialMatches]
+  for f in finder.files:
+    if f.status == 'MATCH_FOUND':
+      positive_matches[i] = f.getMatchedPathFromContentDirectory()
+    i += 1
+
+  return positive_matches
 ### LocalBitTorrentFileFinder.py
 ###############################################################################
