@@ -1,7 +1,7 @@
 #
 # __init__.py
 #
-# Copyright (C) 2009 Doug McGeehan <doug.mcgeehan@mst.edu>
+# Copyright (C) 2013 Doug McGeehan <doug.mcgeehan@mst.edu>
 #
 # Basic plugin template created by:
 # Copyright (C) 2008 Martijn Voncken <mvoncken@gmail.com>
