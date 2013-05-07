@@ -515,8 +515,9 @@ Deluge.ux.preferences.LocalBFFPage = Ext.extend(Ext.Panel, {
 	// fetches directories from plugin's config and reloads table in preferences UI
 	updateDirectories: function() {
 		// calls the python core method to get directories from plugin's config
-    deluge.client.localbff.get_directories({
-      success: function(directories) {
+    deluge.client.localbff.get_config({
+      success: function(config) {
+        var directories = config['contentDirectories'];
         this.list.getStore().removeAll();
         var DirectoryEntry = this.list.getStore().recordType;
         for(var i=0; i<directories.length; i++){

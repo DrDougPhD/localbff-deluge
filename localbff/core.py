@@ -62,11 +62,14 @@ class Core(CorePluginBase):
         self.cache = getAllFilesInContentDirectories(self.config['contentDirectories'])
         component.get("EventManager").register_event_handler("TorrentAddedEvent", self.add_new_metafile)
 
+
     def disable(self):
         component.get("EventManager").deregister_event_handler("TorrentAddedEvent", self.add_new_metafile)
 
+
     def update(self):
         pass
+
 
     @export
     def set_config(self, config):
@@ -75,10 +78,12 @@ class Core(CorePluginBase):
             self.config[key] = config[key]
         self.config.save()
 
+
     @export
     def get_config(self):
         """Returns the config dictionary"""
         return self.config.config
+
 
 
     @export
@@ -90,10 +95,6 @@ class Core(CorePluginBase):
           self.cache = getAllFilesInContentDirectories(self.config['contentDirectories'])
           self.config.save()
 
-    @export
-    def get_directories(self):
-        """Retrieve a list of pre-defined content directories"""
-        return self.config['contentDirectories']
 
     @export
     def remove_directory(self, dir_to_remove):
