@@ -1,5 +1,5 @@
 /*
-Doug: Monday, 6 May 2013 at 07:55
+Doug: 29 June 2013 00:24
 Script: localbff.js
     The client-side javascript code for the LocalBFF plugin.
 
@@ -36,8 +36,8 @@ Copyright:
 
 // define spacer element for UI forms
 Ext.ux.form.Spacer = Ext.extend(Ext.BoxComponent, {
-  	height: 10,
-  	autoEl: 'div'
+    height: 10,
+    autoEl: 'div'
 });
 Ext.reg('spacer', Ext.ux.form.Spacer);
 
@@ -46,82 +46,85 @@ Ext.ns('Deluge.ux');
 
 // define plugin details tab
 Deluge.ux.LocalBFFTab = Ext.extend(Ext.ux.tree.TreeGrid, {
-	
-	// set defaults for UI settings
-	title: _('LocalBFF'),
-	autoScroll: true,
-	rootVisible: false,
-
-	// set table structure for details tab
-	columns: [{
-		header: _('File'),
-		width: 300,
-		dataIndex: 'filename'
-	}, {
-		header: _('Potential Matches'),
-		width: 150,
-		dataIndex: 'matches',
-		align: 'right'
-	}],
-
-	// initialize function
-	initComponent: function() {
-		Deluge.ux.LocalBFFTab.superclass.initComponent.call(this);
-		this.setRootNode(new Ext.tree.TreeNode({text: 'Files'}) );
-	},
-
-	// update table in details tab
-	update: function(torrentId) {
-		function add(torrentId, parentNode) {
-			parentNode.appendChild(new Ext.tree.TreeNode({
-				filename: torrentId
-			}));
-    }
-		
-		// run check for potential matches
-    if(this.torrentId != torrentId)
-    {
-			this.clear();
-			this.torrentId = torrentId;
-			deluge.client.localbff.find_potential_matches(torrentId, {
-				success: this.updateMatchInfo,
-				scope: this
-			});      
-    }
-  },
-
-  // update file match information
-  updateMatchInfo: function(potential_matches) {
-		for(var f in potential_matches) {
-			var root = this.getRootNode();
-			root.appendChild(new Ext.tree.TreeNode({
-				filename: f,
-				matches: potential_matches[f]
-			}));
-			root.firstChild.expand();
-		}
-  },
-
-  // clear tab of all existing information
-  clear: function() {
     
-		// get root node of file tree
-    var root = this.getRootNode();
-    
-    // check if root node has any children
-    if(!root.hasChildNodes()) return;
+    // set defaults for UI settings
+    title: _('LocalBFF'),
+    autoScroll: true,
+    rootVisible: false,
 
-    // if root has children, erase them
-    root.cascade( 
-      function(node) {
-        var parentNode = node.parentNode;
-        if(!parentNode) return;
-        if(!parentNode.ownerTree) return;
-        parentNode.removeChild(node);
-      }
-    );
-  }
- 
+    // set table structure for details tab
+    columns: [{
+        header: _('File'),
+        width: 300,
+        dataIndex: 'filename'
+    }, {
+        header: _('Potential Matches'),
+        width: 150,
+        dataIndex: 'matches',
+        align: 'right'
+    }],
+
+    // initialize function
+    initComponent: function() {
+        Deluge.ux.LocalBFFTab.superclass.initComponent.call(this);
+        this.setRootNode(new Ext.tree.TreeNode({text: 'Files'}) );
+    },
+
+    // update table in details tab
+    update: function(torrentId) {
+        function add(torrentId, parentNode) {
+            parentNode.appendChild(
+                new Ext.tree.TreeNode({filename: torrentId})
+            );
+        }
+
+        // run check for potential matches
+        if(this.torrentId != torrentId)
+        {
+            this.clear();
+            this.torrentId = torrentId;
+            deluge.client.localbff.find_potential_matches(
+                torrentId,
+                {
+                    success: this.updateMatchInfo,
+                    scope: this
+                }
+            );      
+        }
+    },
+
+    // update file match information
+    updateMatchInfo: function(potential_matches) {
+        for(var f in potential_matches) {
+            var root = this.getRootNode();
+            root.appendChild(
+                new Ext.tree.TreeNode({
+                    filename: f,
+                    matches: potential_matches[f]
+                })
+            );
+            root.firstChild.expand();
+        }
+    },
+
+    // clear tab of all existing information
+    clear: function() {
+        // get root node of file tree
+        var root = this.getRootNode();
+
+        // check if root node has any children
+        if(!root.hasChildNodes()) return;
+
+        // if root has children, erase them
+        root.cascade( 
+            function(node) {
+                var parentNode = node.parentNode;
+                if(!parentNode) return;
+                if(!parentNode.ownerTree) return;
+                parentNode.removeChild(node);
+            }
+        );
+    }
 });
 
 // specify Deluge.ux namespace
@@ -129,442 +132,440 @@ Ext.ns('Deluge.ux');
 
 // define LocalBFFDirectoryWindowBase model
 Deluge.ux.LocalBFFDirectoryWindowBase = Ext.extend(Ext.Window, {
-	
-	// set defaults for window base settings
-	layout: 'fit',
-	width: 400,
-	height: 130,
-	closeAction: 'hide',
 
-	// initialize function
-	initComponent: function() {
+    // set defaults for window base settings
+    layout: 'fit',
+    width: 400,
+    height: 130,
+    closeAction: 'hide',
 
-		// call superclass's initialize function
-		Deluge.ux.LocalBFFDirectoryWindowBase.superclass.initComponent.call(this);
+    // initialize function
+    initComponent: function() {
 
-		// add Cancel button to window base
-		this.addButton(_('Cancel'), this.onCancelClick, this);
+        // call superclass's initialize function
+        Deluge.ux.LocalBFFDirectoryWindowBase.superclass.initComponent.call(this);
 
-		// add form elements to window base
-		this.form = this.add({
-			xtype: 'form',
-			baseCls: 'x-plain',
-			bodyStyle: 'padding: 5px',
-			items: [{
-				xtype: 'textfield',
-				fieldLabel: _('Directory'),
-				name: 'dir_name',
-				width: 270
-			}]
-		});
-	},
+        // add Cancel button to window base
+        this.addButton(_('Cancel'), this.onCancelClick, this);
 
-	// called when user clicks window's Cancel button
-	onCancelClick: function() {
+        // add form elements to window base
+        this.form = this.add({
+            xtype: 'form',
+            baseCls: 'x-plain',
+            bodyStyle: 'padding: 5px',
+            items: [{
+                xtype: 'textfield',
+                fieldLabel: _('Directory'),
+                name: 'dir_name',
+                width: 270
+            }]
+        });
+    },
 
-		// closes window
-		this.hide();
-	}
+    // called when user clicks window's Cancel button
+    onCancelClick: function() {
+        // closes window
+        this.hide();
+    }
 });
 
 // define Edit Directory dialog
-Deluge.ux.EditLocalBFFDirectoryWindow = Ext.extend(Deluge.ux.LocalBFFDirectoryWindowBase, {
+Deluge.ux.EditLocalBFFDirectoryWindow = Ext.extend(
+    Deluge.ux.LocalBFFDirectoryWindowBase,
+    {
 
-	// set defaults for dialog settings
-	title: _('Edit Directory'),
+        // set defaults for dialog settings
+        title: _('Edit Directory'),
 
-	// initialize function
-	initComponent: function() {
+        // initialize function
+        initComponent: function() {
 
-		// call superclass's initialize function
-		Deluge.ux.EditLocalBFFDirectoryWindow.superclass.initComponent.call(this);
+            // call superclass's initialize function
+            Deluge.ux.EditLocalBFFDirectoryWindow.superclass.initComponent.call(this);
 
-		// add Save button to dialog
-		this.addButton(_('Save'), this.onSaveClick, this);
+            // add Save button to dialog
+            this.addButton(_('Save'), this.onSaveClick, this);
 
-		// add directoryedit event to dialog
-		this.addEvents({
-			'directoryedit': true
-		});
-	},
+            // add directoryedit event to dialog
+            this.addEvents({'directoryedit': true});
+        },
 
-	// called when Edit Dialog is displayed
-	show: function(directory) {
+        // called when Edit Dialog is displayed
+        show: function(directory) {
 
-		// call superclass's show function
-		Deluge.ux.EditLocalBFFDirectoryWindow.superclass.show.call(this);
+            // call superclass's show function
+            Deluge.ux.EditLocalBFFDirectoryWindow.superclass.show.call(this);
 
-		// set dialog's directory object to selected directory
-		this.directory_to_edit = directory.get('directory');
+            // set dialog's directory object to selected directory
+            this.directory_to_edit = directory.get('directory');
 
-		// populate form fields with directory information
-		this.form.getForm().setValues({
-			dir_name: this.directory_to_edit 
-		});
-	},
+            // populate form fields with directory information
+            this.form.getForm().setValues({dir_name: this.directory_to_edit});
+        },
 
-	// called when user clicks dialog's Save button
-	onSaveClick: function() {
+        // called when user clicks dialog's Save button
+        onSaveClick: function() {
 
-		// retrieve values from forms in dialog
-		var edited_directory = this.form.getForm().getFieldValues().dir_name;
-    
-    // Edit the directory
-    deluge.client.localbff.edit_directory(this.directory_to_edit, edited_directory, {
-      success: function() {
-				this.fireEvent('directoryedit', this, edited_directory);
-      },
-      scope: this
-    });
+            // retrieve values from forms in dialog
+            var edited_directory = this.form.getForm().getFieldValues().dir_name;
 
-		// close dialog
-		this.hide();
-	}
+            // Edit the directory
+            deluge.client.localbff.edit_directory(
+                this.directory_to_edit,
+                edited_directory,
+                {
+                    success: function() {
+                        this.fireEvent(
+                            'directoryedit',
+                            this,
+                            edited_directory
+                        );
+                    },
+                    scope: this
+                }
+            );
 
-});
+            // close dialog
+            this.hide();
+        }
+    }
+);
 
 // define Add Directory dialog
-Deluge.ux.AddLocalBFFDirectoryWindow = Ext.extend(Deluge.ux.LocalBFFDirectoryWindowBase, {
+Deluge.ux.AddLocalBFFDirectoryWindow = Ext.extend(
+    Deluge.ux.LocalBFFDirectoryWindowBase,
+    {
 
-	// set defaults for dialog settings
-	title: _('Add Directory'),
+        // set defaults for dialog settings
+        title: _('Add Directory'),
 
-	// initialize function
-	initComponent: function() {
+        // initialize function
+        initComponent: function() {
 
-		// call superclass's initialize function
-		Deluge.ux.AddLocalBFFDirectoryWindow.superclass.initComponent.call(this);
+            // call superclass's initialize function
+            Deluge.ux.AddLocalBFFDirectoryWindow.superclass.initComponent.call(this);
 
-		// add Add button to dialog
-		this.addButton(_('Add'), this.onAddClick, this);
+            // add Add button to dialog
+            this.addButton(_('Add'), this.onAddClick, this);
 
-		// add directoryadd event to dialog
-		this.addEvents({
-			'directoryadd': true
-		});
-	},
+            // add directoryadd event to dialog
+            this.addEvents({'directoryadd': true});
+        },
 
-	// called whenever the user clicks the dialog's Add button
-	onAddClick: function() {
+        // called whenever the user clicks the dialog's Add button
+        onAddClick: function() {
 
-		// retrieve values from forms in dialog
-		var values = this.form.getForm().getFieldValues();
+            // retrieve values from forms in dialog
+            var values = this.form.getForm().getFieldValues();
 
-		// calls the python core method to add directory to plugin's config
-		deluge.client.localbff.add_directory(values.dir_name, {
-			success: function() {
-				this.fireEvent('directoryadd', this, values.dir_name);
-			},
-			scope: this
-		});
+            // calls the python core method to add directory to plugin's config
+            deluge.client.localbff.add_directory(
+                values.dir_name,
+                {
+                    success: function() {
+                        this.fireEvent('directoryadd', this, values.dir_name);
+                    },
+                    scope: this
+                }
+            );
 
-		// close dialog
-		this.hide();
-	}
-
-});
+            // close dialog
+            this.hide();
+        }
+    }
+);
 
 // specify Deluge preferences namespace
 Ext.ns('Deluge.ux.preferences');
 
 // define plugin page
 Deluge.ux.preferences.LocalBFFPage = Ext.extend(Ext.Panel, {
-	
-	// set defaults for UI settings
-	border: false,
-	title: _('LocalBFF'),
-	layout: 'fit',
 
-	// initialize function
-	initComponent: function() {
-	
-		// call superclass's initialize function
-		Deluge.ux.preferences.LocalBFFPage.superclass.initComponent.call(this);
+    // set defaults for UI settings
+    border: false,
+    title: _('LocalBFF'),
+    layout: 'fit',
 
-		// define list view for directory list
-		this.list = new Ext.list.ListView({
-			store: new Ext.data.SimpleStore({
-				fields: [
-					{name: 'directory', mapping: 1}
-				],
-				id: 0
-			}),
-			columns: [{
-				width: 1,
-				header: _('File Directories'),
-				sortable: true,
-				dataIndex: 'directory'
-			}],
-			autoHeight: true,
-			singleSelect: true,
-			autoExpandColumn: 'directory'
-		});		
-    this.list.on('selectionchange', this.onSelectionChange, this);
+    // initialize function
+    initComponent: function() {
 
-		// add form to Preferences UI to contain plugin's UI elements
-		this.form = this.add({
-			xtype: 'form',
-			layout: 'fit',
-			border: false,
-			hideBorders: true,
-			autoHeight: true
-		});
+        // call superclass's initialize function
+        Deluge.ux.preferences.LocalBFFPage.superclass.initComponent.call(this);
 
-		// add list view to Preferences UI
-		this.panel = this.form.add({
-			border: true,
-			height: 200,
-			items: [this.list],
-			bbar: {
-				items: [{
-					text: _('Add'),
-					iconCls: 'icon-add',
-					handler: this.onAddClick,
-					scope: this
-				}, {
-					text: _('Edit'),
-					iconCls: 'icon-edit',
-					handler: this.onEditClick,
-					scope: this,
-					disabled: true
-				}, '->', {
-					text: _('Remove'),
-					iconCls: 'icon-remove',
-					handler: this.onRemoveClick,
-					scope: this,
-					disabled: true
-				}]
-			},
-			
-		});
+        // define list view for directory list
+        this.list = new Ext.list.ListView({
+            store: new Ext.data.SimpleStore({
+                fields: [{name: 'directory', mapping: 1}],
+                id: 0
+            }),
+            columns: [{
+                width: 1,
+                header: _('File Directories'),
+                sortable: true,
+                dataIndex: 'directory'
+            }],
+            autoHeight: true,
+            singleSelect: true,
+            autoExpandColumn: 'directory'
+        });
 
-		// add spacer element to the form
-		this.form.add({xtype: 'spacer'});
+        this.list.on('selectionchange', this.onSelectionChange, this);
 
-		// add the Force Update Cache button to the form
-		this.forceUpdateButton = this.form.add({
-			xtype: 'button',
-			text: _('Force Update Cache'),
-			listeners: {
-				'click': {
-					fn: this.onForceUpdate,
-					scope: this
-				}			
-			}
-		});
+        // add form to Preferences UI to contain plugin's UI elements
+        this.form = this.add({
+            xtype: 'form',
+            layout: 'fit',
+            border: false,
+            hideBorders: true,
+            autoHeight: true
+        });
 
-		// add spacer element to the form
-		this.form.add({xtype: 'spacer'});
+        // add list view to Preferences UI
+        this.panel = this.form.add({
+            border: true,
+            height: 200,
+            items: [this.list],
+            bbar: {
+                items: [{
+                    text: _('Add'),
+                    iconCls: 'icon-add',
+                    handler: this.onAddClick,
+                    scope: this
+                }, {
+                    text: _('Edit'),
+                    iconCls: 'icon-edit',
+                    handler: this.onEditClick,
+                    scope: this,
+                    disabled: true
+                }, '->', {
+                    text: _('Remove'),
+                    iconCls: 'icon-remove',
+                    handler: this.onRemoveClick,
+                    scope: this,
+                    disabled: true
+                }]
+            }
+        });
 
-		// add the description of the Force Update Cache button to the form
-		this.form.add({
-			xtype: 'box',
-			autoEl: {
-				cn: '<p>This button forces the Content Directory cache to clear and re-initialize.</p><br>'
-			}
-		});		
+        // add spacer element to the form
+        this.form.add({xtype: 'spacer'});
 
-		// add the Default Action combo box to the form
-    deluge.client.localbff.get_default_action({
-      success: function(default_action_id) {
-        console.log("Default action: " + default_action_id);
-        this.defaultActionComboBox = this.form.add({
-    			xtype: 'combo',
-		    	fieldLabel: _('Default Action'),
-		    	name: 'defaultaction',
-    			mode: 'local',
-    			width: 200,
-    			store: new Ext.data.ArrayStore({
-		    		fields: ['id', 'text'],
-    				data: [
-		    			[0, _('Download Payload')],
-				    	[1, _('Delete Payload')],
-					    [2, _('Pause Download')]
-    				]
-		    	}),
-    			editable: false,
-    			triggerAction: 'all',
-    			valueField: 'id',
-    			displayField: 'text',
-          value: default_action_id,
-          listeners: {
-            select: this.onDefaultActionSelect
-          }
-		    });
-      },
-      scope: this
-    });
+        // add the Force Update Cache button to the form
+        this.forceUpdateButton = this.form.add({
+            xtype: 'button',
+            text: _('Force Update Cache'),
+            listeners: {
+                'click': {
+                    fn: this.onForceUpdate,
+                    scope: this
+                }
+            }
+        });
 
-		// add the description of the Default Action combo box to the form
-		this.form.add({
-			xtype: 'box',
-			autoEl: {
-				cn: '<p>This is the default action the plugin will take when ' +
-				    'no potential or positive matches are found for a newly added torrent.</p><br>'
-			}
-		});
+        // add spacer element to the form
+        this.form.add({xtype: 'spacer'});
 
-		// set onPreferencesShow function to trigger on show event
-    deluge.preferences.on('show', this.onPreferencesShow, this);
-	},
+        // add the description of the Force Update Cache button to the form
+        this.form.add({
+            xtype: 'box',
+            autoEl: {
+                cn: '<p>This button forces the Content Directory cache to clear and re-initialize.</p><br>'
+            }
+        });		
 
-	// called when preferences page for plugin is displayed
-	onPreferencesShow: function() {
-	
-		// update directory list in preferences UI
-		this.updateDirectories();
-	},
+        // add the Default Action combo box to the form
+        deluge.client.localbff.get_default_action({
+            success: function(default_action_id) {
+                console.log("Default action: " + default_action_id);
+                this.defaultActionComboBox = this.form.add({
+                    xtype: 'combo',
+                    fieldLabel: _('Default Action'),
+                    name: 'defaultaction',
+                    mode: 'local',
+                    width: 200,
+                    store: new Ext.data.ArrayStore({
+                        fields: ['id', 'text'],
+                        data: [
+                            [0, _('Download Payload')],
+                            [1, _('Delete Payload')],
+                            [2, _('Pause Download')]
+                        ]
+                    }),
+                    editable: false,
+                    triggerAction: 'all',
+                    valueField: 'id',
+                    displayField: 'text',
+                    value: default_action_id,
+                    listeners: {select: this.onDefaultActionSelect}
+                });
+            },
+            scope: this
+        });
 
-	// called when user selects an item from directory list in preferences UI
-	onSelectionChange: function(dv, selections) {
+        // add the description of the Default Action combo box to the form
+        this.form.add({
+            xtype: 'box',
+            autoEl: {
+                cn: '<p>This is the default action the plugin will take when ' +
+                    'no potential or positive matches are found for a newly added torrent.</p><br>'
+            }
+        });
 
-		// enable/disable the edit/remove buttons if item from directory list is/is not selected
-		if (selections.length) {
-			this.panel.getBottomToolbar().items.get(1).enable();
-			this.panel.getBottomToolbar().items.get(3).enable();
-		} else {
-			this.panel.getBottomToolbar().items.get(1).disable();
-			this.panel.getBottomToolbar().items.get(3).disable();
-		}
-	},
+	// set onPreferencesShow function to trigger on show event
+        deluge.preferences.on('show', this.onPreferencesShow, this);
+    },
 
-	// called when user clicks list view's Add button
-	onAddClick: function() {
+    // called when preferences page for plugin is displayed
+    onPreferencesShow: function() {
+        // update directory list in preferences UI
+        this.updateDirectories();
+    },
 
-		// if Add Directory dialog is not currently active, create new dialog
-		if (!this.addWin) {
-			this.addWin = new Deluge.ux.AddLocalBFFDirectoryWindow();
-			this.addWin.on('directoryadd', this.updateDirectories, this);
-		}
-
-		// display new dialog
-		this.addWin.show();
-	},
-
-	// called when user clicks list view's Edit button
-	onEditClick: function() {
-
-		// if Edit Directory dialog is not currently active, create new dialog
-		if (!this.editWin) {
-			this.editWin = new Deluge.ux.EditLocalBFFDirectoryWindow();
-			this.editWin.on('directoryedit', this.updateDirectories, this);
-		}
-
-		// display new dialog, populated with the selected directory information
-		this.editWin.show(this.list.getSelectedRecords()[0]);
-	},
-
-	// called when user clicks list view's Remove button
-	onRemoveClick: function() {
-		// get selected directory from preferences UI
-		var dir_to_remove = this.list.getSelectedRecords()[0].get('directory');
-
-		// call the python core method to remove directory from plugin's config
-		deluge.client.localbff.remove_directory(dir_to_remove, {
-			success: this.updateDirectories,
-      scope: this
-		});
-	},
-
-	// fetches directories from plugin's config and reloads table in preferences UI
-	updateDirectories: function() {
-		// calls the python core method to get directories from plugin's config
-    deluge.client.localbff.get_config({
-      success: function(config) {
-        var directories = config['contentDirectories'];
-        this.list.getStore().removeAll();
-        var DirectoryEntry = this.list.getStore().recordType;
-        for(var i=0; i<directories.length; i++){
-          this.list.getStore().add(new DirectoryEntry({
-            directory: directories[i]
-          }));
+    // called when user selects an item from directory list in preferences UI
+    onSelectionChange: function(dv, selections) {
+        // enable/disable the edit/remove buttons if item from directory list is/is not selected
+        if (selections.length) {
+            this.panel.getBottomToolbar().items.get(1).enable();
+            this.panel.getBottomToolbar().items.get(3).enable();
+        } else {
+            this.panel.getBottomToolbar().items.get(1).disable();
+            this.panel.getBottomToolbar().items.get(3).disable();
         }
-			},
-			scope: this
-		});
-	},
+    },
 
-	// called when user clicks the Force Update Cache button
-	onForceUpdate: function() {
-    deluge.client.localbff.update_cache();
-	},
+    // called when user clicks list view's Add button
+    onAddClick: function() {
+        // if Add Directory dialog is not currently active, create new dialog
+        if (!this.addWin) {
+            this.addWin = new Deluge.ux.AddLocalBFFDirectoryWindow();
+            this.addWin.on('directoryadd', this.updateDirectories, this);
+        }
 
-	// called when user selects the Default Action for the plugin
-	onDefaultActionSelect: function(combo, records) { 
-    console.log("onDefaultActionSelect");
-    console.log(combo);
-    console.log(records);
-    console.log("ID: " + records.json[0]);
-    var default_action_enum = records.json[0];
-    deluge.client.localbff.set_default_action(default_action_enum);
-	},
+        // display new dialog
+        this.addWin.show();
+    },
 
-	// called on Preferences page render
-	onRender: function(ct, position) {
+    // called when user clicks list view's Edit button
+    onEditClick: function() {
+        // if Edit Directory dialog is not currently active, create new dialog
+        if (!this.editWin) {
+            this.editWin = new Deluge.ux.EditLocalBFFDirectoryWindow();
+            this.editWin.on('directoryedit', this.updateDirectories, this);
+        }
 
-		// call superclass's onRender function
-		Deluge.ux.preferences.LocalBFFPage.superclass.onRender.call(this, ct, position);
+        // display new dialog, populated with the selected directory information
+        this.editWin.show(this.list.getSelectedRecords()[0]);
+    },
 
-		// initialize form layout
-		this.form.layout = new Ext.layout.FormLayout();
+    // called when user clicks list view's Remove button
+    onRemoveClick: function() {
+        // get selected directory from preferences UI
+        var dir_to_remove = this.list.getSelectedRecords()[0].get('directory');
 
-		// set form layout container
-		this.form.layout.setContainer(this);
+        // call the python core method to remove directory from plugin's config
+        deluge.client.localbff.remove_directory(
+            dir_to_remove,
+            {
+                success: this.updateDirectories,
+                scope: this
+            }
+        );
+    },
 
-		// execute layout
-		this.form.doLayout();
-	},
+    // fetches directories from plugin's config and reloads table in preferences UI
+    updateDirectories: function() {
+        // calls the python core method to get directories from plugin's config
+        deluge.client.localbff.get_config({
+            success: function(config) {
+                var directories = config['contentDirectories'];
+                this.list.getStore().removeAll();
+                var DirectoryEntry = this.list.getStore().recordType;
+                for(var i=0; i<directories.length; i++){
+                    this.list.getStore().add(
+                        new DirectoryEntry({directory: directories[i]})
+                    );
+                }
+            },
+            scope: this
+        });
+    },
 
-	// called after Preferences page render
-	afterRender: function() {
-		
-		// call superclass's afterRender function
-		Deluge.ux.preferences.LocalBFFPage.superclass.afterRender.call(this);
-	}
-	
+    // called when user clicks the Force Update Cache button
+    onForceUpdate: function() {
+        deluge.client.localbff.update_cache();
+    },
+
+    // called when user selects the Default Action for the plugin
+    onDefaultActionSelect: function(combo, records) { 
+        console.log("onDefaultActionSelect");
+        console.log(combo);
+        console.log(records);
+        console.log("ID: " + records.json[0]);
+        var default_action_enum = records.json[0];
+        deluge.client.localbff.set_default_action(default_action_enum);
+    },
+
+    // called on Preferences page render
+    onRender: function(ct, position) {
+        // call superclass's onRender function
+        Deluge.ux.preferences.LocalBFFPage.superclass.onRender.call(this, ct, position);
+
+        // initialize form layout
+        this.form.layout = new Ext.layout.FormLayout();
+
+        // set form layout container
+        this.form.layout.setContainer(this);
+
+        // execute layout
+        this.form.doLayout();
+    },
+
+    // called after Preferences page render
+    afterRender: function() {
+        // call superclass's afterRender function
+        Deluge.ux.preferences.LocalBFFPage.superclass.afterRender.call(this);
+    }	
 });
 
 // initialize LocalBFF plugin
 Deluge.plugins.LocalBFFPlugin = Ext.extend(Deluge.Plugin, {
-	
-	// set defaults for plugin settings
-	name: 'LocalBFF',
 
-	// called on plugin disable
-	onDisable: function() {
-		deluge.preferences.removePage(this.prefsPage);
-	},
+    // set defaults for plugin settings
+    name: 'LocalBFF',
 
-	// called on plugin enable
-	onEnable: function() {
-    		
-		// add preferences page for plugin		
-		this.prefsPage = deluge.preferences.addPage(new Deluge.ux.preferences.LocalBFFPage());
-		
-		// add details tab for plugin
-		deluge.details.add(new Deluge.ux.LocalBFFTab());
+    // called on plugin disable
+    onDisable: function() {
+        deluge.preferences.removePage(this.prefsPage);
+    },
 
-    // add Relink and Seed option to context menu
-    this.torrentMenu = new Ext.menu.Menu();
- 		this.tmSep = deluge.menus.torrent.add({xtype:'menuseparator'});
- 		this.tm = deluge.menus.torrent.add({
-			text: _('Relink and seed'),
-      handler: function(item, e) {
-				var selected_torrent_ids = deluge.torrents.getSelectedIds();
-        Ext.each(selected_torrent_ids, function(id, i) {
-					console.log("Torrent ID: " + id);
-          deluge.client.localbff.relink(id, {
-						success: function() {
-							deluge.ui.update();
-              console.log("Updating UI");
-						}
-					})
-				});
-			},
-			scope: this
-		});
-	}
-	
+    // called on plugin enable
+    onEnable: function() {
+        // add preferences page for plugin		
+        this.prefsPage = deluge.preferences.addPage(new Deluge.ux.preferences.LocalBFFPage());
+
+        // add details tab for plugin
+        deluge.details.add(new Deluge.ux.LocalBFFTab());
+
+        // add Relink and Seed option to context menu
+        this.torrentMenu = new Ext.menu.Menu();
+        this.tmSep = deluge.menus.torrent.add({xtype:'menuseparator'});
+        this.tm = deluge.menus.torrent.add({
+            text: _('Relink and seed'),
+            handler: function(item, e) {
+                var selected_torrent_ids = deluge.torrents.getSelectedIds();
+                Ext.each(selected_torrent_ids, function(id, i) {
+                    console.log("Torrent ID: " + id);
+                    deluge.client.localbff.relink(id, {
+                        success: function() {
+                            deluge.ui.update();
+                            console.log("Updating UI");
+                        }
+                    })
+                });
+            },
+            scope: this
+        });
+    }
 });
 
 // register LocalBFF plugin with Deluge
