@@ -2,6 +2,8 @@
 # webui.py
 #
 # Copyright (C) 2013 Doug McGeehan <doug.mcgeehan@mst.edu>
+# Copyright (C) 2013 Maximilian Schroeder
+# Copyright (C) 2013 Hiren Patel
 #
 # Basic plugin template created by:
 # Copyright (C) 2008 Martijn Voncken <mvoncken@gmail.com>

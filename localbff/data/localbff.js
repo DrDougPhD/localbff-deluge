@@ -4,7 +4,9 @@ Script: localbff.js
     The client-side javascript code for the LocalBFF plugin.
 
 Copyright:
-    (C) Doug McGeehan 2009 <doug.mcgeehan@mst.edu>
+    (C) Doug McGeehan 2013 <doug.mcgeehan@mst.edu>
+    (C) Maximilian Schroeder 2013
+    (C) Hiren Patel 2013
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation; either version 3, or (at your option)
@@ -47,74 +49,69 @@ Deluge.ux.LocalBFFTab = Ext.extend(Ext.ux.tree.TreeGrid, {
 	
 	// set defaults for UI settings
 	title: _('LocalBFF'),
+	autoScroll: true,
+	rootVisible: false,
 
-  autoScroll: true,
-  rootVisible: false,
+	// set table structure for details tab
+	columns: [{
+		header: _('File'),
+		width: 300,
+		dataIndex: 'filename'
+	}, {
+		header: _('Potential Matches'),
+		width: 150,
+		dataIndex: 'matches',
+		align: 'right'
+	}],
 
-  columns: [
-    {
-      header: _('File'),
-      width: 300,
-      dataIndex: 'filename'
-    },
-    {
-      header: _('Potential Matches'),
-      width: 150,
-      dataIndex: 'matches',
-      align: 'right'
+	// initialize function
+	initComponent: function() {
+		Deluge.ux.LocalBFFTab.superclass.initComponent.call(this);
+		this.setRootNode(new Ext.tree.TreeNode({text: 'Files'}) );
+	},
+
+	// update table in details tab
+	update: function(torrentId) {
+		function add(torrentId, parentNode) {
+			parentNode.appendChild(new Ext.tree.TreeNode({
+				filename: torrentId
+			}));
     }
-  ],
-
-  initComponent: function() {
-    Deluge.ux.LocalBFFTab.superclass.initComponent.call(this);
-    this.setRootNode(new Ext.tree.TreeNode({text: 'Files'}) );
-  },
-
-  update: function(torrentId) {
-    function add(torrentId, parentNode) {
-      parentNode.appendChild(new Ext.tree.TreeNode({
-        filename: torrentId
-      }));
-    }
-
+		
+		// run check for potential matches
     if(this.torrentId != torrentId)
     {
-      this.clear();
-      this.torrentId = torrentId;
-      // {'a/payload/file': 4}
-      //var potentialMatches = deluge.client.localbff.find_potential_matches(torrentId); 
-      //var root = this.getRootNode();
-      //add(torrentId, root);
-      //root.firstChild.expand();
-
-      deluge.client.localbff.find_potential_matches(torrentId, {
-        success: this.updateMatchInfo,
-        scope: this
-      });      
+			this.clear();
+			this.torrentId = torrentId;
+			deluge.client.localbff.find_potential_matches(torrentId, {
+				success: this.updateMatchInfo,
+				scope: this
+			});      
     }
   },
 
-  //Update file match information
+  // update file match information
   updateMatchInfo: function(potential_matches) {
-    for(var f in potential_matches) {
-      var root = this.getRootNode();
-      root.appendChild(new Ext.tree.TreeNode({
-        filename: f,
-        matches: potential_matches[f]
-      }));
-      root.firstChild.expand();
-    }
+		for(var f in potential_matches) {
+			var root = this.getRootNode();
+			root.appendChild(new Ext.tree.TreeNode({
+				filename: f,
+				matches: potential_matches[f]
+			}));
+			root.firstChild.expand();
+		}
   },
 
-  //Clear tab of all existing information
+  // clear tab of all existing information
   clear: function() {
     
+		// get root node of file tree
     var root = this.getRootNode();
     
-    //check if root node has any children
+    // check if root node has any children
     if(!root.hasChildNodes()) return;
 
-    //If root has children, erase them
+    // if root has children, erase them
     root.cascade( 
       function(node) {
         var parentNode = node.parentNode;
@@ -126,12 +123,6 @@ Deluge.ux.LocalBFFTab = Ext.extend(Ext.ux.tree.TreeGrid, {
   }
  
 });
-
-//////////////////////////////////////////
-//					//
-//	MAX'S DOMAIN START		//
-//					//
-//////////////////////////////////////////
 
 // specify Deluge.ux namespace
 Ext.ns('Deluge.ux');
@@ -273,20 +264,6 @@ Deluge.ux.AddLocalBFFDirectoryWindow = Ext.extend(Deluge.ux.LocalBFFDirectoryWin
 
 });
 
-Deluge.ux.RemoveLocalBFFDirectoryWindow = Ext.extend(Deluge.ux.LocalBFFDirectoryWindowBase, {
-  title: _('Remove'),
-
-  initComponent: function() {
-    Deluge.ux.EditLocalBFFCommandWindow.superclass.initComponent.call(this);
-
-    this.addButton(_('Remove'), this.onRemoveClick, this);
-  },
-
-  onRemoveClick: function() {
-    console.log("Removing directory");
-  }
-});
-
 // specify Deluge preferences namespace
 Ext.ns('Deluge.ux.preferences');
 
@@ -417,29 +394,6 @@ Deluge.ux.preferences.LocalBFFPage = Ext.extend(Ext.Panel, {
       },
       scope: this
     });
-/*		this.defaultActionComboBox = this.form.add({
-			xtype: 'combo',
-			fieldLabel: _('Default Action'),
-			name: 'defaultaction',
-			mode: 'local',
-			width: 200,
-			store: new Ext.data.ArrayStore({
-				fields: ['id', 'text'],
-				data: [
-					[0, _('Download Payload')],
-					[1, _('Delete Payload')],
-					[2, _('Pause Download')]
-				]
-			}),
-			editable: false,
-			triggerAction: 'all',
-			valueField: 'id',
-			displayField: 'text',
-      value: this.default_action_id,
-      listeners: {
-        select: this.onDefaultActionSelect
-      }
-		});*/
 
 		// add the description of the Default Action combo box to the form
 		this.form.add({
@@ -561,22 +515,13 @@ Deluge.ux.preferences.LocalBFFPage = Ext.extend(Ext.Panel, {
 		this.form.doLayout();
 	},
 
-	// called on Apply button click
-	onApply: function() {
-
-	},
-
 	// called after Preferences page render
 	afterRender: function() {
 		
 		// call superclass's afterRender function
 		Deluge.ux.preferences.LocalBFFPage.superclass.afterRender.call(this);
-	},
-
-  	// called when configuration needs to be updated
-  	updateConfig: function() {
-
-  	}
+	}
+	
 });
 
 // initialize LocalBFF plugin
@@ -587,46 +532,40 @@ Deluge.plugins.LocalBFFPlugin = Ext.extend(Deluge.Plugin, {
 
 	// called on plugin disable
 	onDisable: function() {
-	    	deluge.preferences.removePage(this.prefsPage);
+		deluge.preferences.removePage(this.prefsPage);
 	},
 
 	// called on plugin enable
 	onEnable: function() {
     		
-		//alert("LocalBFF enabled!");
+		// add preferences page for plugin		
 		this.prefsPage = deluge.preferences.addPage(new Deluge.ux.preferences.LocalBFFPage());
+		
+		// add details tab for plugin
 		deluge.details.add(new Deluge.ux.LocalBFFTab());
 
-    		//Add Relink and Seed button context menu
-    		this.torrentMenu = new Ext.menu.Menu();
-
-    		this.tmSep = deluge.menus.torrent.add({xtype:'menuseparator'});
-
-    		this.tm = deluge.menus.torrent.add({
-      			text: _('Relink and seed'),
-            handler: function(item, e) {
-              var selected_torrent_ids = deluge.torrents.getSelectedIds();
-
-              Ext.each(selected_torrent_ids, function(id, i) {
-                console.log("Torrent ID: " + id);
-                deluge.client.localbff.relink(id, {
-                  success: function() {
-                    deluge.ui.update();
-                    console.log("Updating UI");
-                  }
-                })
-              });
-            },
-            scope: this
-    		});
+    // add Relink and Seed option to context menu
+    this.torrentMenu = new Ext.menu.Menu();
+ 		this.tmSep = deluge.menus.torrent.add({xtype:'menuseparator'});
+ 		this.tm = deluge.menus.torrent.add({
+			text: _('Relink and seed'),
+      handler: function(item, e) {
+				var selected_torrent_ids = deluge.torrents.getSelectedIds();
+        Ext.each(selected_torrent_ids, function(id, i) {
+					console.log("Torrent ID: " + id);
+          deluge.client.localbff.relink(id, {
+						success: function() {
+							deluge.ui.update();
+              console.log("Updating UI");
+						}
+					})
+				});
+			},
+			scope: this
+		});
 	}
+	
 });
-
-//////////////////////////////////////////
-//					//
-//	MAX'S DOMAIN END		//
-//					//
-//////////////////////////////////////////
 
 // register LocalBFF plugin with Deluge
 Deluge.registerPlugin('LocalBFF', Deluge.plugins.LocalBFFPlugin);
