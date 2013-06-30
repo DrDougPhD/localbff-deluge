@@ -53,6 +53,17 @@ import time
 DEFAULT_PREFS = {
     "contentDirectories": [],
     "defaultAction": 0,
+    "minAge": 5,  # When deluged begins execution, it will enable this plugin
+                  #  and immediately being re-adding all metafiles, which
+                  #  will run through this script over and over again. If all
+                  #  of your metafiles are re-added, rechecked, re-searched,
+                  #  etc... that can lead to a bad time and a lot of wasted
+                  #  computations.
+                  #  To combat this, only files that have been added within
+                  #  the minAge of seconds will be run through the 
+                  #  add_new_metafile function below. That way, only files
+                  #  that are NEWLY added will be run through, and not files
+                  #  that were previously added some time ago.
 }
 
 # Default Actions are as follows:
@@ -157,41 +168,57 @@ class Core(CorePluginBase):
         #  'time_added': 1372535519.22622 ]
         # is_in_seeding_state = current_torrent.get_status(['is_seed'])['is_seed']
 
-        # Get the filenames and file sizes of each payload file
-        files = current_torrent.get_files()
-
-        # Iterate through these files, and query the cache for potential
-        #  matches.
-        some_files_have_no_potential_matches = False
-        for f in files:
-            potential_matches = self.cache.getAllFilesOfSize(f['size'])
-            num_pot_matches = len(potential_matches)
-            if num_pot_matches == 0:
-              some_files_have_no_potential_matches = True
-
-        if some_files_have_no_potential_matches:
-          print('Some files have no potential matches...')
-          if self.config['defaultAction'] == 0:
-            # If the default action is set to Download, then
-            #  go ahead and attempt to relink the files. If
-            #  there are any positive matches, they will be
-            #  relinked, and the missing ones will be downloaded.
-            print('Default action set to Download, so attempting relink')
-            self.relink(torrent_id)
-
-          if self.config['defaultAction'] == 1:
-            print('Default action set to Deleted, so removing')
-            torrent_manager.remove(torrent_id)
-
-          elif self.config['defaultAction'] == 2:
-            print('Default action set to Pause, so pausing')
-            current_torrent.pause()
+        # If a metafile is already in a seeding state, or is
+        #  already finished, or is older than minAge in seconds,
+        #  then it will be skipped. Otherwise, it will be run
+        #  through.
+        new_metafile_statuses = current_torrent.get_status(
+            ['is_seed', 'is_finished', 'time_added']
+        )
+        is_metafile_older_than_minAge = (
+            now > self.config['minAge'] + new_metafile_statuses['time_added']
+        )
+        if (new_metafile_statuses['is_seed'] or new_metafile_statuses['is_finished'] or is_metafile_older_than_minAge):
+            print("Metafile ID# {0} ignored".format(torrent_id))
 
         else:
-          # If all of the files have potential matches, then we should
-          #  automatically attempt to relink.
-          print('All files have potential matches! Attemping a relink.')
-          self.relink(torrent_id)
+            # Get the filenames and file sizes of each payload file
+            files = current_torrent.get_files()
+
+            # Iterate through these files, and query the cache for potential
+            #  matches.
+            some_files_have_no_potential_matches = False
+            for f in files:
+                potential_matches = self.cache.getAllFilesOfSize(f['size'])
+                num_pot_matches = len(potential_matches)
+                if num_pot_matches == 0:
+                    some_files_have_no_potential_matches = True
+
+            if some_files_have_no_potential_matches:
+                print('Some files have no potential matches...')
+                if self.config['defaultAction'] == 0:
+                    # If the default action is set to Download, then
+                    #  go ahead and attempt to relink the files. If
+                    #  there are any positive matches, they will be
+                    #  relinked, and the missing ones will be downloaded.
+                    print('Default action set to Download, so attempting relink')
+                    self.relink(torrent_id)
+
+                elif self.config['defaultAction'] == 1:
+                    print('Default action set to Deleted, so removing')
+                    torrent_manager.remove(torrent_id)
+
+                elif self.config['defaultAction'] == 2:
+                    print('Default action set to Pause, so pausing')
+                    current_torrent.pause()
+
+            else:
+                # If all of the files have potential matches, then we should
+                #  automatically attempt to relink.
+                print('All files have potential matches! Attemping a relink.')
+                self.relink(torrent_id)
+
+        print("#"*80)
 
 
     @export
