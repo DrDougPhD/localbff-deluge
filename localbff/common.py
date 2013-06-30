@@ -124,7 +124,6 @@ Walking content directory
         else:
           module_logger.warning("  Problem with accessing file => " + filepath)
       
-  module_logger.info("Total files in content directory => " + str(filesInContentDirectory))
   dao = ContentDirectoryCache(files=fileInfoFromContentDirectory)
 
   module_logger.info("Content directory walking complete!")
@@ -601,7 +600,7 @@ class PayloadPiece:
 ###############################################################################
 ### BitTorrentMetafile.py
 import os
-import bencode
+from deluge import bencode
 import json
 
 def getMetafileFromPath( metafilePath ):

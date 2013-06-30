@@ -39,7 +39,8 @@
 #    statement from all source files in the program, then also delete it here.
 #
 import os
-print("LocalBFF: May 2nd, 2013 at 16:15")
+__version__ = "LocalBFF: 29 June 2013 22:22pm"
+print(__version__)
 print(os.path.abspath(__file__))
 from deluge.log import LOG as log
 from deluge.plugins.pluginbase import CorePluginBase
@@ -47,6 +48,7 @@ import deluge.component as component
 import deluge.configmanager
 from deluge.core.rpcserver import export
 from common import getAllFilesInContentDirectories
+import time
 
 DEFAULT_PREFS = {
     "contentDirectories": [],
@@ -62,11 +64,17 @@ class Core(CorePluginBase):
     def enable(self):
         self.config = deluge.configmanager.ConfigManager("localbff.conf", DEFAULT_PREFS)
         self.cache = getAllFilesInContentDirectories(self.config['contentDirectories'])
-        component.get("EventManager").register_event_handler("TorrentAddedEvent", self.add_new_metafile)
+        component.get("EventManager").register_event_handler(
+            "TorrentAddedEvent",
+            self.add_new_metafile
+        )
 
 
     def disable(self):
-        component.get("EventManager").deregister_event_handler("TorrentAddedEvent", self.add_new_metafile)
+        component.get("EventManager").deregister_event_handler(
+            "TorrentAddedEvent",
+            self.add_new_metafile
+        )
 
 
     def update(self):
@@ -85,7 +93,6 @@ class Core(CorePluginBase):
     def get_config(self):
         """Returns the config dictionary"""
         return self.config.config
-
 
 
     @export
@@ -135,9 +142,20 @@ class Core(CorePluginBase):
     def add_new_metafile(self, torrent_id):
         # Determine if potential matches exist.
         #  If no potential matches exist, proceed with the default action.
-        print("New metafile added: {0}".format(torrent_id))
+        now = time.time()
+        print("New metafile added: {0} at {1}".format(torrent_id, str(now)))
         torrent_manager = component.get("Core").torrentmanager
         current_torrent = torrent_manager.torrents[torrent_id]
+        print("Status := ")
+        print(current_torrent.get_status({}))
+        print("is_seed     := {0}".format(current_torrent.get_status(['is_seed'])['is_seed']))
+        print("is_finished := {0}".format(current_torrent.get_status(['is_finished'])['is_finished']))
+        time_added = current_torrent.get_status(['time_added'])['time_added']
+        print("time_added  := {0}".format(time_added))
+        print("            := {0} seconds after added".format(now - time_added))
+        # ['is_finished', 'is_seed', 'paused',
+        #  'time_added': 1372535519.22622 ]
+        # is_in_seeding_state = current_torrent.get_status(['is_seed'])['is_seed']
 
         # Get the filenames and file sizes of each payload file
         files = current_torrent.get_files()

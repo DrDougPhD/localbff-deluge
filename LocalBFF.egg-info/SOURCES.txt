@@ -9,3 +9,5 @@ localbff/common.py
 localbff/core.py
 localbff/gtkui.py
 localbff/webui.py
+localbff/data/config.glade
+localbff/data/localbff.js
