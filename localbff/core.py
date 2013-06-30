@@ -112,7 +112,9 @@ class Core(CorePluginBase):
         print("core.add_directory('{0}')".format(directory))
         if not directory in self.config['contentDirectories']:
           self.config['contentDirectories'].append(directory)
-          self.cache = getAllFilesInContentDirectories(self.config['contentDirectories'])
+
+          # Load the files in the new content directory into the cache
+          self.cache.addDirectory(directory)
           self.config.save()
 
 
@@ -261,22 +263,46 @@ class Core(CorePluginBase):
           potential_matches[f['index']] = self.cache.getAllFilesOfSize(f['size'])
 
         # 2. Build the LocalBitTorrentFileFinder object.
+
+        #######################################################################
+        # The following code is a hack. It should be fixed.
+        #
+        #  In order to get the information stored in the metafile, it is
+        #   written to the disk as a .torrent file.
         current_torrent.write_torrentfile()
+
+        #  The absolute path of the file is then grabbed. From some naive
+        #   experiments, I found out that when write_torrentfile() is called,
+        #   the torrent file is written into the following directory:
+        #     deluge.configmanager.get_config_dir()/state/
+        #   This directory is stored in the variable metafile_dir below.
         import os
         metafile_dir = os.path.join(
             deluge.configmanager.get_config_dir(),
             "state"
         )
+
+        #  The metafile is named TORRENT_ID.torrent, and is stored in the
+        #   directory specified above.
         metafile_path = os.path.join(
           metafile_dir,
           "{0}.torrent".format(torrent_id)
         )
+
+        # With the metafile path known, it can be passed into the match()
+        #  function, which is a top-level entrance into the localbff
+        #  library. I took this approach because it meant I did not have
+        #  to modify much code in the localbff library to accomplish this.
         from common import match 
         positive_matches = match(
           fastVerification=True,
           metafilePath=metafile_path,
           potentialMatches=potential_matches
         )
+        #
+        # The hack above is stupid, but it works. I (or someone) needs
+        #  to correct it.
+        #######################################################################
 
         # If all files are positively matched, then the torrent should be
         #  relinked and set to a seeding state.
@@ -309,6 +335,7 @@ class Core(CorePluginBase):
         elif self.config['defaultAction'] == 2:
           print("Some files had no positive matches. Pausing torrent.")
           current_torrent.pause()
+
 
     def _relink(self, current_torrent, matches):
         download_location = current_torrent.get_options()['download_location']

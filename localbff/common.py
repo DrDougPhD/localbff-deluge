@@ -99,12 +99,7 @@ import logging
 
 module_logger = logging.getLogger(__name__)
 
-def getAllFilesInContentDirectories( contentDirectories ):
-  print("Loading cache...")
-  module_logger.info("""
-Walking content directory
--------------------------""")
-  
+def walkDirectoriesForFiles(contentDirectories):
   fileInfoFromContentDirectory = []
 
   for contentDirectory in contentDirectories:
@@ -121,13 +116,24 @@ Walking content directory
         
           fileInfo = (absolutePath, f, filesize)
           fileInfoFromContentDirectory.append( fileInfo )
+
         else:
           module_logger.warning("  Problem with accessing file => " + filepath)
-      
-  dao = ContentDirectoryCache(files=fileInfoFromContentDirectory)
 
+  return fileInfoFromContentDirectory
+
+
+def getAllFilesInContentDirectories( contentDirectories ):
+  print("Loading cache...")
+  module_logger.info("""
+Walking content directory
+-------------------------""")
+  
+  fileInfoFromContentDirectory = walkDirectoriesForFiles(contentDirectories)
+  dao = ContentDirectoryCache(files=fileInfoFromContentDirectory)
   module_logger.info("Content directory walking complete!")
   return dao
+
 
 def errorEncounteredWhileWalking( error ):
   module_logger.warning("Error accessing path: '" + error.filename + "'")
@@ -158,7 +164,8 @@ class ContentDirectoryCache:
       self.db.commit()
     else:
       self.logger.warning("No files found. No matches will be found D:")
-  
+
+
   def getAllFilesOfSize(self, size):
     cursor = self.db.cursor()
     cursor.execute("select absolute_path, filename from warez where size = ?", (size,))
@@ -180,6 +187,19 @@ class ContentDirectoryCache:
         self.logger.warning("   # chmod +r '" + filepath + "'")
     
     return filenames
+
+
+  def addDirectory(self, new_directory):
+    cursor = self.db.cursor()
+    files = walkDirectoriesForFiles([new_directory])
+    if files:
+      self.logger.debug("Inserting files into database")
+      self.db.executemany("insert into warez values (?,?,?)", files)
+      self.db.commit()
+    else:
+      self.logger.warning("No files found. No matches will be found D:")
+
+
 ### ContentDirectoryCache.py
 ###############################################################################
 
