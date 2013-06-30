@@ -158,8 +158,11 @@ def getAllFilesInContentDirectories( contentDirectories ):
 Walking content directory
 -------------------------""")
   
-  fileInfoFromContentDirectory = walkDirectoriesForFiles(contentDirectories)
-  dao = ContentDirectoryCache(files=fileInfoFromContentDirectory)
+  dao = ContentDirectoryCache()
+  unique_root_dirs = unique_path_roots(contentDirectories)
+  for content_directory in unique_root_dirs:
+    dao.addDirectory(content_directory)
+
   module_logger.info("Content directory walking complete!")
   return dao
 
@@ -192,7 +195,7 @@ class ContentDirectoryCache:
       self.db.executemany("insert into warez values (?,?,?)", files)
       self.db.commit()
     else:
-      self.logger.warning("No files found. No matches will be found D:")
+      self.logger.debug("Cache not initialized with files.")
 
 
   def getAllFilesOfSize(self, size):
