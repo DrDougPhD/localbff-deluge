@@ -906,7 +906,7 @@ Matching files in the file system to files in metafile
     later."""
     has_directories = (
       1 != len(self.files) or
-      os.path.basename(self.files[0].getPathFromMetafile()) != self.files[0].getPathFromMetafile()
+      os.path.dirname(self.files[0].getPathFromMetafile()) != self.files[0].getPathFromMetafile()
     )
     if has_directories:
       print("Metafile is multi-file. Creating directories.")
@@ -915,7 +915,7 @@ Matching files in the file system to files in metafile
       #  one directory will need to be created.
       for f in self.files:
         # Test if the directory already exists. If not, create it.
-        relative_dir = os.path.basename(f.getPathFromMetafile())
+        relative_dir = os.path.dirname(f.getPathFromMetafile())
         abs_path = os.path.join(
           directory,
           relative_dir
