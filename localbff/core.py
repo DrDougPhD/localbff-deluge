@@ -1,3 +1,4 @@
+__version__ = "LocalBFF: 1 July 2013 11:52am"
 #
 # core.py
 #
@@ -39,16 +40,20 @@
 #    statement from all source files in the program, then also delete it here.
 #
 import os
-__version__ = "LocalBFF: 1 July 2013 09:07am"
-print(__version__)
-print(os.path.abspath(__file__))
-from deluge.log import LOG as log
 from deluge.plugins.pluginbase import CorePluginBase
 import deluge.component as component
 import deluge.configmanager
 from deluge.core.rpcserver import export
 from common import getAllFilesInContentDirectories
+from common import match
 import time
+
+#from deluge import log as deluge_logging
+# This will be available soon.
+# log = deluge_logging.getPluginLogger('LocalBFF')
+import logging
+log = logging.getLogger(__name__)
+log.info(__version__)
 
 DEFAULT_PREFS = {
     "contentDirectories": [],
@@ -67,12 +72,15 @@ DEFAULT_PREFS = {
 }
 
 # Default Actions are as follows:
-#   0 => Download Missing Payload, Seed the Rest
-#   1 => Delete BitTorrent
-#   2 => Pause Download
+DEFAULT_ACTIONS = [
+  "Download Missing Payload, Seed the Rest",
+  "Delete BitTorrent",
+  "Pause Download"
+]
 
 class Core(CorePluginBase):
     def enable(self):
+        log.info('LocalBFF enabled.')
         self.config = deluge.configmanager.ConfigManager("localbff.conf", DEFAULT_PREFS)
         self.cache = getAllFilesInContentDirectories(self.config['contentDirectories'])
         component.get("EventManager").register_event_handler(
@@ -95,7 +103,9 @@ class Core(CorePluginBase):
     @export
     def set_config(self, config):
         """Sets the config dictionary"""
+        log.debug('LocalBFF configuration data set.')
         for key in config.keys():
+            log.debug("config['{0}'] = {1}".format(key, config[key]))
             self.config[key] = config[key]
         self.config.save()
 
@@ -109,7 +119,7 @@ class Core(CorePluginBase):
     @export
     def add_directory(self, directory):
         """Adds a new Content Directory to the configuration"""
-        print("core.add_directory('{0}')".format(directory))
+        log.info("New content directory added for scanning: {0}".format(directory))
         if not directory in self.config['contentDirectories']:
           self.config['contentDirectories'].append(directory)
 
@@ -121,7 +131,7 @@ class Core(CorePluginBase):
     @export
     def remove_directory(self, dir_to_remove):
         """Remove the directory if it exists in the configuration"""
-        print("core.remove_directory('{0}')".format(dir_to_remove))
+        log.info("Content directory removed: {0}".format(dir_to_remove))
         if dir_to_remove in self.config['contentDirectories']:
           self.config['contentDirectories'].remove(dir_to_remove)
           self.cache.removeDirectory(dir_to_remove)
@@ -130,7 +140,7 @@ class Core(CorePluginBase):
     @export
     def edit_directory(self, old_dir, new_dir):
         """Edit the value of the provided directory"""
-        print("core.edit_directory('{0}', '{1}')".format(old_dir, new_dir))
+        log.info("Content directory {0} renamed to {1}".format(old_dir, new_dir))
         try:
           i = self.config['contentDirectories'].index(old_dir)
           self.config['contentDirectories'][i] = new_dir
@@ -138,11 +148,18 @@ class Core(CorePluginBase):
           self.cache.addDirectory(new_dir)
           self.config.save()
         except:
-          pass
+          import sys
+          import traceback
+          exc_type, exc_value, exc_traceback = sys.exc_info()
+          lines = traceback.format_exception(exc_type, exc_value, exc_traceback)
+          log.error(''.join('!! ' + line for line in lines))
+          raise
+
 
     @export
     def set_default_action(self, default_action_id):
         """Set the ID of the default action"""
+        log.info("Default action updated to {0}".format(DEFAULT_PREFS[default_action_id]))
         self.config['defaultAction'] = default_action_id
         self.config.save()
 
@@ -152,23 +169,19 @@ class Core(CorePluginBase):
 
     @export
     def update_cache(self):
+        log.info("Cache updating...")
         self.cache = getAllFilesInContentDirectories(self.config['contentDirectories'])
+        log.info("Cache update complete")
 
 
     def add_new_metafile(self, torrent_id):
         # Determine if potential matches exist.
         #  If no potential matches exist, proceed with the default action.
         now = time.time()
-        print("New metafile added: {0} at {1}".format(torrent_id, str(now)))
+        log.debug("New metafile added: {0} at {1}".format(torrent_id, now))
         torrent_manager = component.get("Core").torrentmanager
         current_torrent = torrent_manager.torrents[torrent_id]
-        print("Status := ")
-        print(current_torrent.get_status({}))
-        print("is_seed     := {0}".format(current_torrent.get_status(['is_seed'])['is_seed']))
-        print("is_finished := {0}".format(current_torrent.get_status(['is_finished'])['is_finished']))
         time_added = current_torrent.get_status(['time_added'])['time_added']
-        print("time_added  := {0}".format(time_added))
-        print("            := {0} seconds after added".format(now - time_added))
         # ['is_finished', 'is_seed', 'paused',
         #  'time_added': 1372535519.22622 ]
         # is_in_seeding_state = current_torrent.get_status(['is_seed'])['is_seed']
@@ -195,7 +208,7 @@ class Core(CorePluginBase):
                   )
               )
 
-            print("Metafile ID# {0} ignored: {1}".format(
+            log.debug("Metafile ID# {0} ignored: {1}".format(
                 torrent_id, reason_for_ignoring_metafile
             ))
 
@@ -213,35 +226,33 @@ class Core(CorePluginBase):
                     some_files_have_no_potential_matches = True
 
             if some_files_have_no_potential_matches:
-                print('Some files have no potential matches...')
+                log.debug('Some files have no potential matches...')
                 if self.config['defaultAction'] == 0:
                     # If the default action is set to Download, then
                     #  go ahead and attempt to relink the files. If
                     #  there are any positive matches, they will be
                     #  relinked, and the missing ones will be downloaded.
-                    print('Default action set to Download, so attempting relink')
+                    log.info('Default action set to Download, so attempting relink')
                     self.relink(torrent_id)
 
                 elif self.config['defaultAction'] == 1:
-                    print('Default action set to Deleted, so removing')
+                    log.info('Default action set to Deleted, so removing')
                     torrent_manager.remove(torrent_id)
 
                 elif self.config['defaultAction'] == 2:
-                    print('Default action set to Pause, so pausing')
+                    log.info('Default action set to Pause, so pausing')
                     current_torrent.pause()
 
             else:
                 # If all of the files have potential matches, then we should
                 #  automatically attempt to relink.
-                print('All files have potential matches! Attemping a relink.')
+                log.info('All files have potential matches! Attemping a relink.')
                 self.relink(torrent_id)
-
-        print("#"*80)
 
 
     @export
     def find_potential_matches(self, torrent_id):
-        print("find_potential_matches({0})".format(torrent_id))
+        log.debug("Finding potential matches for Torrent ID#{0}".format(torrent_id))
         # Grab the torrent from the torrent manager
         current_torrent = component.get("Core").torrentmanager.torrents[torrent_id]
 
@@ -265,7 +276,7 @@ class Core(CorePluginBase):
         # 1. Find the potential matches for this file.
         #     If no matches are found, perform the default action.
         # Grab the torrent from the torrent manager
-        print("Relinking torrent {0}".format(torrent_id))
+        log.info("Relinking torrent {0}".format(torrent_id))
         torrent_manager = component.get("Core").torrentmanager
         current_torrent = torrent_manager.torrents[torrent_id]
 
@@ -280,15 +291,14 @@ class Core(CorePluginBase):
 
         # 2. Call LocalBFF to match the files
         metafile_dict = {"info": deluge.bencode.bdecode(current_torrent.torrent_info.metadata())}
-        print("Bencoded metafile obtained. Passing on to LocalBFF.")
+        log.debug("Bencoded metafile obtained. Passing on to LocalBFF.")
         from common import match 
         matcher = match(
           fastVerification=True,
           metafileDict=metafile_dict,
           potentialMatches=potential_matches
         )
-        print("#"*80)
-        print("Matching complete!")
+        log.info("Matching complete!")
 
         # If all files are positively matched, then the torrent should be
         #  relinked and set to a seeding state.
@@ -300,21 +310,23 @@ class Core(CorePluginBase):
         # If there is some file that is not fully matched, then we must check
         #  the default action as specified by the user.
         if all_files_positively_matched or self.config['defaultAction'] == 0:
-          if all_files_positively_matched: print("Positive matches for all files!")
-          else: print("Some files had no positive matches."
-                      " Seeding the matches, downloading the rest")
+          if all_files_positively_matched:
+            log.info("Positive matches for all files!")
+          else:
+            log.info("Some files had no positive matches."
+                     " Seeding the matches, downloading the rest")
 
           matcher.relink(current_torrent.get_options()['download_location'])
           
-          print("Forcing recheck...")
+          log.info("Forcing recheck...")
           current_torrent.force_recheck()
-          print("Resuming torrent...")
+          log.info("Resuming torrent...")
           current_torrent.resume()
 
         elif self.config['defaultAction'] == 1:
-          print("Some files had no positive matches. Deleting torrent.")
+          log.info("Some files had no positive matches. Deleting torrent.")
           torrent_manager.remove(torrent_id)
 
         elif self.config['defaultAction'] == 2:
-          print("Some files had no positive matches. Pausing torrent.")
+          log.info("Some files had no positive matches. Pausing torrent.")
           current_torrent.pause()

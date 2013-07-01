@@ -152,14 +152,14 @@ def mkdirs(newdir):
 import sqlite3
 import logging
 
-module_logger = logging.getLogger(__name__)
+module_logger = logging.getLogger('deluge.plugin.LocalBFF.common')
 
 def walkDirectoriesForFiles(contentDirectories):
   fileInfoFromContentDirectory = []
 
   for contentDirectory in contentDirectories:
     filesInContentDirectory = 0
-    module_logger.info("Collecting all files in content directory => " + contentDirectory)
+    module_logger.info("Collecting all files in content directory => {0}".format(contentDirectory))
     for root, dirs, files in os.walk( contentDirectory, onerror=errorEncounteredWhileWalking ):
       for f in files:
         filesInContentDirectory += 1
@@ -173,13 +173,12 @@ def walkDirectoriesForFiles(contentDirectories):
           fileInfoFromContentDirectory.append( fileInfo )
 
         else:
-          module_logger.warning("  Problem with accessing file => " + filepath)
+          module_logger.warning("Problem with accessing file => {0}".format(filepath))
 
   return fileInfoFromContentDirectory
 
 
 def getAllFilesInContentDirectories( contentDirectories ):
-  print("Loading cache...")
   module_logger.info("""
 Walking content directory
 -------------------------""")
@@ -194,17 +193,17 @@ Walking content directory
 
 
 def errorEncounteredWhileWalking( error ):
-  module_logger.warning("Error accessing path: '" + error.filename + "'")
+  module_logger.warning("Error accessing path: '{0}'".format(error.filename))
   module_logger.warning(error)
   module_logger.warning("To fix this problem, perhaps execute the following command:")
-  module_logger.warning("# chmod -R +rx '" + error.filename + "'")
+  module_logger.warning("# chmod -R +rx '{0}'".format(error.filename))
 
 
 class ContentDirectoryCache:
   def __init__(self):
     self.db = sqlite3.connect(":memory:")
 
-    self.logger = logging.getLogger(__name__)
+    self.logger = logging.getLogger('deluge.plugin.LocalBFF.ContentDirectoryCache')
     self.logger.debug("Creating sqlite3 db in memory")
 
     cursor = self.db.cursor()
@@ -213,7 +212,7 @@ class ContentDirectoryCache:
     #  From here: http://stackoverflow.com/a/10856450
     if os.path.exists(LOCALBFF_CACHE_FILE):
       # The cache already exists on disk, so load it into memory.
-      print("Cache already exists on disk. Loading into memory.")
+      self.logger.debug("Cache already exists on disk. Loading into memory.")
       from StringIO import StringIO
       file_con = sqlite3.connect(LOCALBFF_CACHE_FILE)
       tempfile = StringIO()
@@ -231,7 +230,7 @@ class ContentDirectoryCache:
     else:
       # The sqlite3 file db does not exist, so create
       #  the in-memory database and the file database.
-      print("Cache not found on disk. Initializing both on-disk and in-memory")
+      self.logger.debug("Cache not found on disk. Initializing both on-disk and in-memory")
       table_def = '''
         create table warez(
           absolute_path text,
@@ -256,7 +255,7 @@ class ContentDirectoryCache:
     cursor.execute("select absolute_path, filename from warez where size = ?", (size,))
     filesWithSpecifiedSize = cursor.fetchall()
     
-    self.logger.debug("Getting all files of size " + str(size) + " bytes => " + str(len(filesWithSpecifiedSize)))
+    self.logger.debug("Getting all files of size {0} bytes => {1}".format(size, len(filesWithSpecifiedSize)))
     filenames = []
     for fileInfoRow in filesWithSpecifiedSize:
       fileDirectory = fileInfoRow[0]
@@ -264,12 +263,12 @@ class ContentDirectoryCache:
       filepath = os.path.join(fileDirectory, filename)
 
       if os.access(filepath, os.R_OK):
-        self.logger.debug("  File added => " + filepath)
+        self.logger.debug("  File added => {0}".format(filepath))
         filenames.append( filepath )
       else:
-        self.logger.warning("  Cannot read file due to permissions error, ignoring: '" + filepath + "'")
+        self.logger.warning("  Cannot read file due to permissions error, ignoring: '{0}'".format(filepath))
         self.logger.warning("  To fix this problem, perhaps execute the following command:")
-        self.logger.warning("   # chmod +r '" + filepath + "'")
+        self.logger.warning("   # chmod +r '{0}'".format(filepath))
     
     return filenames
 
@@ -281,7 +280,7 @@ class ContentDirectoryCache:
     #  forceably update only one subdirectory of their content directory,
     #  all they need to to is add that subdirectory to the list of content
     #  directories.
-    print("Adding {0} to cache".format(new_directory))
+    self.logger.debug("Adding {0} to cache".format(new_directory))
     files = walkDirectoriesForFiles([new_directory])
 
     if files:
@@ -301,7 +300,7 @@ class ContentDirectoryCache:
   def removeDirectory(self, dir_to_remove):
     # Delete results from the database that have the directory to be removed
     #  as a prefix of their absolute path.
-    print("Removing {0} from cache".format(dir_to_remove))
+    self.logger.debug("Removing {0} from cache".format(dir_to_remove))
     c = self.db.cursor()
     c.execute(
       "DELETE from warez where absolute_path LIKE ?",
@@ -326,53 +325,53 @@ class ContentDirectoryCache:
 import json
 
 def getPayloadFilesFromMetafileDict(metafileDict):
-  print("Extracting file information from metafile dictionary")
+  module_logger.debug("Extracting file information from metafile dictionary")
   files = []
   payloadDirectory = metafileDict['info']['name'].decode('utf-8')
   
   if isSingleFileMetafile(metafileDict):
-    print('Metafile is in single-file mode')
+    module_logger.debug('Metafile is in single-file mode')
 
     filename = payloadDirectory
-    print("  Filename => " + filename)
+    module_logger.debug("  Filename => {0}".format(filename))
 
     size = metafileDict['info']['length']
-    print("  Filesize => " + str(size) + " Bytes")
+    module_logger.debug("  Filesize => {0} Bytes".format(size))
     
     files.append( PayloadFile(path="", filename=filename, size=size, streamOffset=0) )
   
   else:
-    print('Metafile is in multi-file mode')
+    module_logger.debug('Metafile is in multi-file mode')
     
     numberOfFiles = len(metafileDict['info']['files'])
-    print('Total files => ' + str(numberOfFiles))
+    module_logger.debug('Total files => {0}'.format(numberOfFiles))
     
     currentStreamOffset = 0
     for i in range(0, numberOfFiles):
-      print("START: Decoding file #" + str(i+1))
+      module_logger.debug("START: Decoding file #{0}".format(i+1))
 
       currentFile = metafileDict['info']['files'][i]
-      print("  JSON => \n" + json.dumps(currentFile, indent=2))
+      module_logger.debug("  JSON => \n{0}".format(json.dumps(currentFile, indent=2)))
 
       path = os.path.join(payloadDirectory, *currentFile['path'][:-1])
-      print("  Path => " + path )
+      module_logger.debug("  Path => {0}".format(path))
 
       filename = currentFile['path'][-1].decode('utf-8')
-      print("  Filename => " + filename )
+      module_logger.debug("  Filename => {0}".format(filename))
 
       size = currentFile['length']
-      print("  Filesize => " + str(size) )
+      module_logger.debug("  Filesize => {0}".format(size))
 
       index = i
       streamOffset = currentStreamOffset
-      print("  Payload offset => " + str(streamOffset) + " Bytes")
+      module_logger.debug("  Payload offset => {0} Bytes".format(streamOffset))
       
       files.append( PayloadFile(path=path, filename=filename, size=size, streamOffset=streamOffset, index=index+1) )
       
-      print("END: Decoding file #" + str(i+1))
+      module_logger.debug("END: Decoding file #{0}".format(i+1))
       currentStreamOffset += size
   
-  print("File information decoding complete!")
+  module_logger.debug("File information decoding complete!")
   return files
 
 class PayloadFile:
@@ -386,7 +385,7 @@ class PayloadFile:
     self.status = "NOT_CHECKED"
     self.index = index
 
-    self.logger = logging.getLogger(__name__)
+    self.logger = logging.getLogger('deluge.plugin.LocalBFF.common.PayloadFile')
   
   def __repr__(self):
     return self.__str__()
@@ -438,8 +437,8 @@ def getFromMetafilePieceAndFileObjects(piece, file):
   byteInWhichFileEndsInPiece = None
   byteInWhichFileBeginsInPiece = None
   module_logger.debug("How does the file contribute to piece?")
-  module_logger.debug("  " + file.__str__())
-  module_logger.debug("  " + piece.__str__())
+  module_logger.debug("  {0}".format(file))
+  module_logger.debug("  {0}".format(piece))
   
   if pieceOnlyHasOneFile(piece, file):
     module_logger.debug("  Status => Piece only has one file")
@@ -472,17 +471,17 @@ class FileContributingToPiece:
     self.referenceFile = referenceFile
     self.possibleMatchPath = possibleMatchPath
 
-    self.logger = logging.getLogger(__name__)
+    self.logger = logging.getLogger('deluge.plugin.LocalBFF.common.FileContributingToPiece')
   
   def __repr__(self):
     return self.__str__()
 
   def __str__(self):
     output = __name__
-    output += "\n  Metafile info: " + self.referenceFile.__str__()
-    output += "\n  File substream: (Seek=" + str(self.seekOffset) + "B, Read=" + str(self.readOffset) + "B)"
+    output += "\n  Metafile info: {0}".format(self.referenceFile)
+    output += "\n  File substream: (Seek={0}B, Read={1}B)".format(self.seekOffset, self.readOffset)
     if self.possibleMatchPath:
-      output += "\n  Possible match path: " + self.possibleMatchPath
+      output += "\n  Possible match path: {0}".format(self.possibleMatchPath)
     return output
   
   def getAllPossibleFilePaths(self):
@@ -500,15 +499,15 @@ class FileContributingToPiece:
     return data
   
   def applyCurrentMatchPathToReferenceFileAsPositiveMatchPath(self):
-    self.logger.debug("Applying " + self.possibleMatchPath + " to " + self.referenceFile.__str__())
+    self.logger.debug("Applying {0} to {1}".format(self.possibleMatchPath, self.referenceFile))
     self.referenceFile.matchedFilePath = self.possibleMatchPath
   
   def updateStatus(self, status):
     if not self.referenceFile.status == "MATCH_FOUND":
-      self.logger.debug("Updating file status from " + self.referenceFile.status + " to " + status)
+      self.logger.debug("Updating file status from {0} to {1}".format(self.referenceFile.status, status))
       self.referenceFile.status = status
     else:
-      self.logger.debug("A match has already been found for " + self.referenceFile.__str__())
+      self.logger.debug("A match has already been found for {0}".format(self.referenceFile))
       self.logger.debug("Not updating status.")
 
   def hasBeenMatched(self):
@@ -526,7 +525,7 @@ class AllContributingFilesToPiece:
   def __init__(self, listOfContributingFiles=None):
     self.listOfContributingFiles = listOfContributingFiles
     self.combinationProducesPositiveHashMatch = None
-    self.logger = logging.getLogger(__name__)
+    self.logger = logging.getLogger('deluge.plugin.LocalBFF.common.AllContributingFilesToPiece')
   
   def addContributingFile(self, newFile):
     if self.listOfContributingFiles == None:
@@ -691,7 +690,7 @@ class PayloadPiece:
     self.contributingFiles = AllContributingFilesToPiece()
     self.isVerified = False
 
-    self.logger = logging.getLogger(__name__)
+    self.logger = logging.getLogger('deluge.plugin.LocalBFF.common.PayloadPiece')
   
   def __repr__(self):
     return self.__str__()
@@ -759,25 +758,18 @@ def getMetafileFromBencodedData( bencodedData ):
   module_logger.debug('Decoded metainfo content =>\n{0}'.format(
     json.dumps(pruned, indent=2, ensure_ascii=False)))
 
-  print("Decoding metafile dictionary")
+  module_logger.debug("Decoding metafile dictionary")
   return getMetafileFromDict( pruned )
 
 def getMetafileFromDict( metafileDict ):
   module_logger.debug("Converting metafile dictionary to BitTorrentMetafile object")
-  print("Decoding files")
   files = getPayloadFilesFromMetafileDict( metafileDict )
-  print("Decoding pieces")
   pieces = getPiecesFromMetafileDict( metafileDict, files )
-  print("Decoding piece size")
   pieceSize = getPieceSizeFromDict(metafileDict)
-  print("Decoding final piece size")
   finalPieceSize = getFinalPieceSizeFromDict(metafileDict)
-  print("Decoding number of pieces")
   numberOfPieces = getNumberOfPiecesFromDict(metafileDict)
-  print("Decoding payload size")
   payloadSize = getPayloadSizeFromMetafileDict( metafileDict )
 
-  print("Constructing metafile object")
   metafile = BitTorrentMetafile(
     files=files,
     pieces=pieces,
@@ -832,7 +824,7 @@ class LocalBitTorrentFileFinder:
   def __init__(self, metafile=None, fastVerification=False):
     self.doFastVerification = fastVerification
 
-    self.logger = logging.getLogger(__name__)
+    self.logger = logging.getLogger('deluge.plugin.LocalBFF.common.LocalBitTorrentFileFinder')
     self.logger.info("LocalBitTorrentFileFinder initialized")
     self.logger.info("  Fast verification => {0}".format(fastVerification))
     
@@ -906,7 +898,7 @@ Matching files in the file system to files in metafile
       os.path.dirname(self.files[0].getPathFromMetafile()) != self.files[0].getPathFromMetafile()
     )
     if has_directories:
-      print("Metafile is multi-file. Creating directories.")
+      self.logger.debug("Metafile is multi-file. Creating directories.")
       # If the metafile is a single-file metafile, then no directories
       #  need to be created. However, if it is multifile, then at least
       #  one directory will need to be created.
@@ -917,10 +909,10 @@ Matching files in the file system to files in metafile
           directory,
           relative_dir
         )
-        print("Making directory {0}".format(abs_path))
+        self.logger.debug("Making directory {0}".format(abs_path))
         mkdirs(abs_path)
     else:
-      print("Metafile is single-file. No directories to be made.")
+      self.logger.debug("Metafile is single-file. No directories to be made.")
 
 
   def createPayloadSymbolicLinks(self, directory):
@@ -937,12 +929,11 @@ Matching files in the file system to files in metafile
         )
 
         # Make the symbolic link
-        print("Creating link: {0}\n"
-              "            => {1}".format(abs_path, actual_file))
+        self.logger.info("Creating link: {0} => {1}".format(abs_path, actual_file))
         os.symlink(actual_file, abs_path)
 
       else:
-        print("Skipping linking of {0}".format(f.getPathFromMetafile()))
+        self.logger.info("Skipping linking of {0}".format(f.getPathFromMetafile()))
 
 
   def relink(self, directory):
@@ -953,9 +944,9 @@ Matching files in the file system to files in metafile
 
 
 def match(fastVerification, metafileDict, potentialMatches):
-  print("Decoding metafile")
+  module_logger.info("LocalBFF is decoding metafile")
   metafile = getMetafileFromDict(metafileDict)
-  print("Initializing finder")
+  module_logger.info("Initializing LocalBFF")
   finder = LocalBitTorrentFileFinder(metafile, fastVerification)
   
   i = 0

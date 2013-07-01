@@ -43,12 +43,16 @@ from setuptools import setup
 
 __plugin_name__ = "LocalBFF"
 __author__ = "Doug McGeehan"
-__author_email__ = "doug.mcgeehan@mst.edu"
-__version__ = "0.1"
-__url__ = ""
-__license__ = "GPLv3"
-__description__ = ""
-__long_description__ = """"""
+__author_email__ = "djmvfb@mst.edu"
+__version__ = "0.2"
+__url__ = "https://bitbucket.org/dougmcgeehan/localbff-deluge"
+__license__ = "Python Software Foundation License"
+__description__ = "Hot, sexy, local BFFs want you to reseed your shit."
+__long_description__ = """Sometimes you rename files, or change the directory structure. Then, after a while, you go back to your BitTorrent client to have it all red! It can't find the files to seed them!
+
+What do you do now? Well, if you believe "Sharing is Caring", you'll reseed those buggers soon.
+
+Local BitTorent File Finder (localbff) is a library intended to assist you in locating those lost files."""
 __pkg_data__ = {__plugin_name__.lower(): ["template/*", "data/*"]}
 
 setup(
