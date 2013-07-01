@@ -123,26 +123,6 @@ def unique_path_roots(paths):
             # yield path
             visited.add(path)
     return visited
-
-
-# From here: http://www.linux-support.com/cms/python-create-a-directory-and-its-parent-path/
-def mkdirs(newdir):
-    """ Create a directory and all parent folders.
-        Features:
-        - parent directoryies will be created
-        - if directory already exists, then do nothing
-        - if there is another filsystem object with the same name, raise an exception
-    """
-    if os.path.isdir(newdir):
-        pass
-    elif os.path.isfile(newdir):
-        raise OSError("Cannot create directory, file already exists: '{0}'".format(newdir))
-    else:
-        head, tail = os.path.split(newdir)
-        if head and not os.path.isdir(head):
-            mkdirs(head)
-        if tail:
-            os.mkdir(newdir)
 ### utils.py
 ###############################################################################
 
@@ -820,6 +800,7 @@ class BitTorrentMetafile:
 
 ###############################################################################
 ### LocalBitTorrentFileFinder.py
+from os import makedirs
 class LocalBitTorrentFileFinder:
   def __init__(self, metafile=None, fastVerification=False):
     self.doFastVerification = fastVerification
@@ -910,7 +891,7 @@ Matching files in the file system to files in metafile
           relative_dir
         )
         self.logger.debug("Making directory {0}".format(abs_path))
-        mkdirs(abs_path)
+        makedirs(abs_path)
     else:
       self.logger.debug("Metafile is single-file. No directories to be made.")
 

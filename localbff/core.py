@@ -298,7 +298,7 @@ class Core(CorePluginBase):
           metafileDict=metafile_dict,
           potentialMatches=potential_matches
         )
-        log.info("Matching complete!")
+        log.info("Searching for positive matches complete!")
 
         # If all files are positively matched, then the torrent should be
         #  relinked and set to a seeding state.
@@ -316,7 +316,10 @@ class Core(CorePluginBase):
             log.info("Some files had no positive matches."
                      " Seeding the matches, downloading the rest")
 
-          matcher.relink(current_torrent.get_options()['download_location'])
+          log.info("Pausing torrent for relinking...")
+          current_torrent.pause()
+          #matcher.relink(current_torrent.get_options()['download_location'])
+          self.move_storage_and_relink(current_torrent, matcher)
           
           log.info("Forcing recheck...")
           current_torrent.force_recheck()
@@ -330,3 +333,74 @@ class Core(CorePluginBase):
         elif self.config['defaultAction'] == 2:
           log.info("Some files had no positive matches. Pausing torrent.")
           current_torrent.pause()
+
+
+    def move_storage_and_relink(self, current_torrent, matcher):
+        # There may be actual files that are stored all throughout the user's
+        #  system, such as:
+        #    payload/file1 => /mnt/stuff/FILE_1.txt
+        #    payload/file2 => /media/big_ass_hd/fileTWO
+        # In order to relink these files, move_storage() will need to be called
+        #  with '/' and the directory in which to store, since this is the
+        #  deepest common subdirectory of the two files.
+        # NOTE: this may be a problem for Windows users, who store files on
+        #  one hard drive (C:/ drive) and another hard drive (D:/ drive).
+
+        common_subdirectory = os.path.split(os.path.commonprefix(
+            [f.getMatchedPathFromContentDirectory() for f in matcher.files if f.status == "MATCH_FOUND"]
+        ))[0]
+        
+        # If a Windows user has one file on C:/, and another file on D:/,
+        #  then common_subdirectory will be empty.
+        if common_subdirectory:
+            # Move the storage location of the current torrent to the common
+            #  subdirectory.
+            current_torrent.move_storage(common_subdirectory)
+
+            # Each file in the current torrent must now be reconnected if
+            #  a positive match was found.
+            rename_struct = []
+            i = 0
+            for f in matcher.files:
+                if f.status == "MATCH_FOUND":
+                    rename_struct.append((i, f.getMatchedPathFromContentDirectory()))
+                i += 1
+
+            # Try/Catch statement is needed around here. If the file cannot
+            #  be moved, and error will occur.
+            self.rename(current_torrent, rename_struct, common_subdirectory)
+
+
+    def rename(self, current_torrent, matches, download_location):
+        renaming_struct = []
+        rel_path_index = len(download_location)+1
+        for index, match in matches:
+          # A call to current_torrent.rename_file() requires the new relative
+          #  path of the payload file. Since matched_path may be on some
+          #  other hard drive, a relative path from the root/download path
+          #  of the torrent needs to be constructed and fed into rename_file()
+          rel_path = match[rel_path_index:]
+          print("Actual path   := {0}".format(match))
+          print("Relative path := {0}".format(rel_path))
+          renaming_struct.append((index, rel_path))
+
+          # For some reason, renaming of a payload file will be rejected if
+          #  the file exists. So let's move the found file so it disappears.
+          log.debug("Moving {0} to {1}".format(match, match + "_localbff_tmp_move"))
+          os.rename(
+            match,
+            match + "_localbff_tmp_move"
+          )
+
+        # Apply the renamings and force a recheck on the torrent
+        log.debug("Connecting metafile to positive matches... {0}".format(renaming_struct))
+        current_torrent.rename_files(renaming_struct)
+
+        # Since the files were moved temporarily to allow for renaming,
+        #  they must be moved back before the force recheck is executed.
+        for i, match in matches:
+            log.debug("Moving back to {0}".format(match))
+            os.rename(
+              match + "_localbff_tmp_move",
+              match
+            )
