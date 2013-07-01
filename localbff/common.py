@@ -217,9 +217,10 @@ class ContentDirectoryCache:
       print("Cache not found on disk. Initializing both on-disk and in-memory")
       table_def = '''
         create table warez(
-          absolute_path text PRIMARY KEY ON CONFLICT REPLACE,
+          absolute_path text,
           filename text,
-          size int
+          size int,
+          PRIMARY KEY (absolute_path, filename) ON CONFLICT REPLACE
         )
       '''
       cursor.execute(table_def)
@@ -263,6 +264,7 @@ class ContentDirectoryCache:
     #  forceably update only one subdirectory of their content directory,
     #  all they need to to is add that subdirectory to the list of content
     #  directories.
+    print("Adding {0} to cache".format(new_directory))
     files = walkDirectoriesForFiles([new_directory])
 
     if files:
@@ -279,6 +281,25 @@ class ContentDirectoryCache:
       self.logger.warning("No files found. No matches will be found D:")
 
 
+  def removeDirectory(self, dir_to_remove):
+    # Delete results from the database that have the directory to be removed
+    #  as a prefix of their absolute path.
+    print("Removing {0} from cache".format(dir_to_remove))
+    c = self.db.cursor()
+    c.execute(
+      "DELETE from warez where absolute_path LIKE ?",
+      (dir_to_remove+'%',)
+    )
+    self.db.commit()
+
+    file_con = sqlite3.connect(LOCALBFF_CACHE_FILE)
+    fc = file_con.cursor()
+    fc.execute(
+      "DELETE from warez where absolute_path LIKE ?",
+      (dir_to_remove+'%',)
+    )
+    file_con.commit()
+    file_con.close()
 ### ContentDirectoryCache.py
 ###############################################################################
 

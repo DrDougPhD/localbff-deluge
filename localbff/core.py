@@ -121,18 +121,21 @@ class Core(CorePluginBase):
     @export
     def remove_directory(self, dir_to_remove):
         """Remove the directory if it exists in the configuration"""
+        print("core.remove_directory('{0}')".format(dir_to_remove))
         if dir_to_remove in self.config['contentDirectories']:
           self.config['contentDirectories'].remove(dir_to_remove)
-          self.cache = getAllFilesInContentDirectories(self.config['contentDirectories'])
+          self.cache.removeDirectory(dir_to_remove)
           self.config.save()
 
     @export
     def edit_directory(self, old_dir, new_dir):
         """Edit the value of the provided directory"""
+        print("core.edit_directory('{0}', '{1}')".format(old_dir, new_dir))
         try:
           i = self.config['contentDirectories'].index(old_dir)
           self.config['contentDirectories'][i] = new_dir
-          self.cache = getAllFilesInContentDirectories(self.config['contentDirectories'])
+          self.cache.removeDirectory(old_dir)
+          self.cache.addDirectory(new_dir)
           self.config.save()
         except:
           pass
