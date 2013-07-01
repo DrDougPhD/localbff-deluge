@@ -38,9 +38,16 @@
 #    this exception statement from your version. If you delete this exception
 #    statement from all source files in the program, then also delete it here.
 #
+import os
+import deluge.configmanager
+LOCALBFF_CACHE_FILENAME = "localbff_cache.db"
+LOCALBFF_CACHE_FILE = os.path.join(
+    deluge.configmanager.get_config_dir(),
+    LOCALBFF_CACHE_FILENAME
+)
 
 def get_resource(filename):
-    import pkg_resources, os
+    import pkg_resources
     return pkg_resources.resource_filename("localbff", os.path.join("data", filename))
     
 # Due to weird importing issues that I have no time to investigate, the whole of
@@ -50,7 +57,6 @@ def get_resource(filename):
 ###############################################################################
 ### utils.py
 import copy
-import os
 from binascii import b2a_base64
 from functools import cmp_to_key
 from locale import strcoll
@@ -173,29 +179,58 @@ def errorEncounteredWhileWalking( error ):
   module_logger.warning("To fix this problem, perhaps execute the following command:")
   module_logger.warning("# chmod -R +rx '" + error.filename + "'")
 
+
 class ContentDirectoryCache:
-  def __init__(self, files=None):
+  def __init__(self):
     self.db = sqlite3.connect(":memory:")
 
     self.logger = logging.getLogger(__name__)
     self.logger.debug("Creating sqlite3 db in memory")
 
     cursor = self.db.cursor()
-    cursor.execute('''
-      create table warez(
-        absolute_path text PRIMARY KEY ON CONFLICT REPLACE,
-        filename text,
-        size int
-      )
-    ''')
-    self.db.commit()
-    
-    if files:
-      self.logger.debug("Inserting files into database")
-      self.db.executemany("insert into warez values (?,?,?)", files)
+
+    # Test if the cache exists on disk, and load it to memory.
+    #  From here: http://stackoverflow.com/a/10856450
+    if os.path.exists(LOCALBFF_CACHE_FILE):
+      # The cache already exists on disk, so load it into memory.
+      print("Cache already exists on disk. Loading into memory.")
+      print("##################################################")
+      from StringIO import StringIO
+      file_con = sqlite3.connect(LOCALBFF_CACHE_FILE)
+      tempfile = StringIO()
+      for line in file_con.iterdump():
+        l = "{0}\n".format(line)
+        print(l)
+        tempfile.write(l)
+      file_con.close()
+      tempfile.seek(0)
+      print("##################################################")
+
+      # Create a database in memory and import from tempfile
+      cursor.executescript(tempfile.read())
       self.db.commit()
+      self.db.row_factory = sqlite3.Row
+
     else:
-      self.logger.debug("Cache not initialized with files.")
+      # The sqlite3 file db does not exist, so create
+      #  the in-memory database and the file database.
+      print("Cache not found on disk. Initializing both on-disk and in-memory")
+      table_def = '''
+        create table warez(
+          absolute_path text PRIMARY KEY ON CONFLICT REPLACE,
+          filename text,
+          size int
+        )
+      '''
+      cursor.execute(table_def)
+      self.db.commit()
+    
+      # Create sqlite3 file with the table definition.
+      file_con = sqlite3.connect(LOCALBFF_CACHE_FILE)
+      f_cursor = file_con.cursor()
+      f_cursor.execute(table_def)
+      file_con.commit()
+      file_con.close()
 
 
   def getAllFilesOfSize(self, size):
@@ -222,12 +257,24 @@ class ContentDirectoryCache:
 
 
   def addDirectory(self, new_directory):
-    cursor = self.db.cursor()
+    # If a new directory is added that is a subdirectory of a content
+    #  directory already added, then the directory will be walked, and
+    #  any new files will be added to the cache. So, if a user wants to
+    #  forceably update only one subdirectory of their content directory,
+    #  all they need to to is add that subdirectory to the list of content
+    #  directories.
     files = walkDirectoriesForFiles([new_directory])
+
     if files:
       self.logger.debug("Inserting files into database")
       self.db.executemany("insert into warez values (?,?,?)", files)
       self.db.commit()
+
+      # Load the file backup with the newly added files.
+      file_con = sqlite3.connect(LOCALBFF_CACHE_FILE)
+      file_con.executemany("insert into warez values (?,?,?)", files)
+      file_con.commit()
+      file_con.close()
     else:
       self.logger.warning("No files found. No matches will be found D:")
 
@@ -238,7 +285,6 @@ class ContentDirectoryCache:
 
 ###############################################################################
 ### PayloadFile.py
-import os
 import json
 
 def getPayloadFilesFromMetafileDict(metafileDict):
@@ -651,9 +697,7 @@ class PayloadPiece:
 
 ###############################################################################
 ### BitTorrentMetafile.py
-import os
 from deluge import bencode
-import json
 
 def getMetafileFromPath( metafilePath ):
   module_logger.info("Loading metafile from URI " + metafilePath)
