@@ -123,6 +123,26 @@ def unique_path_roots(paths):
             # yield path
             visited.add(path)
     return visited
+
+
+# From here: http://www.linux-support.com/cms/python-create-a-directory-and-its-parent-path/
+def mkdirs(newdir):
+    """ Create a directory and all parent folders.
+        Features:
+        - parent directoryies will be created
+        - if directory already exists, then do nothing
+        - if there is another filsystem object with the same name, raise an exception
+    """
+    if os.path.isdir(newdir):
+        pass
+    elif os.path.isfile(newdir):
+        raise OSError("Cannot create directory, file already exists: '{0}'".format(newdir))
+    else:
+        head, tail = os.path.split(newdir)
+        if head and not os.path.isdir(head):
+            mkdirs(head)
+        if tail:
+            os.mkdir(newdir)
 ### utils.py
 ###############################################################################
 
@@ -878,6 +898,63 @@ Matching files in the file system to files in metafile
         self.logger.info(" MATCH PATH   => " + file.getMatchedPathFromContentDirectory())
 
 
+  def createPayloadDirectoryStructure(self, directory):
+    """For the directory structure outlined in the metafile, there may be
+    other directories that need to be created in order to properly relink
+    this metafile to its lost payload. This function will create that
+    directory structure, allowing for the symbolic links to be created
+    later."""
+    has_directories = (
+      1 != len(self.files) or
+      os.path.basename(self.files[0].getPathFromMetafile()) != self.files[0].getPathFromMetafile()
+    )
+    if has_directories:
+      print("Metafile is multi-file. Creating directories.")
+      # If the metafile is a single-file metafile, then no directories
+      #  need to be created. However, if it is multifile, then at least
+      #  one directory will need to be created.
+      for f in self.files:
+        # Test if the directory already exists. If not, create it.
+        relative_dir = os.path.basename(f.getPathFromMetafile())
+        abs_path = os.path.join(
+          directory,
+          relative_dir
+        )
+        print("Making directory {0}".format(abs_path))
+        mkdirs(abs_path)
+    else:
+      print("Metafile is single-file. No directories to be made.")
+
+
+  def createPayloadSymbolicLinks(self, directory):
+    """Assuming the directory structure of the payload has already been
+    created, this function will create the symbolic links for those files
+    that have positive matches found."""
+    for f in self.files:
+      if f.status == 'MATCH_FOUND':
+        actual_file = f.getMatchedPathFromContentDirectory()
+        relative_path = f.getPathFromMetafile()
+        abs_path = os.path.join(
+          directory,
+          relative_path
+        )
+
+        # Make the symbolic link
+        print("Creating link: {0}\n"
+              "            => {1}".format(abs_path, actual_file))
+        os.symlink(actual_file, abs_path)
+
+      else:
+        print("Skipping linking of {0}".format(f.getPathFromMetafile()))
+
+
+  def relink(self, directory):
+    """Create the directory structure and the symbolic link structure for
+    the current metafile in the provided directory."""
+    self.createPayloadDirectoryStructure(directory)
+    self.createPayloadSymbolicLinks(directory)
+
+
 def match(fastVerification, metafilePath, potentialMatches):
   finder = LocalBitTorrentFileFinder(metafilePath, fastVerification)
   finder.processMetafile()
@@ -888,14 +965,6 @@ def match(fastVerification, metafilePath, potentialMatches):
     i += 1
 
   finder.positivelyMatchFilesInMetafileToPossibleMatches()
-
-  i = 0
-  positive_matches = [None for f in potentialMatches]
-  for f in finder.files:
-    if f.status == 'MATCH_FOUND':
-      positive_matches[i] = f.getMatchedPathFromContentDirectory()
-    i += 1
-
-  return positive_matches
+  return finder
 ### LocalBitTorrentFileFinder.py
 ###############################################################################

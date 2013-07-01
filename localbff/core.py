@@ -310,7 +310,7 @@ class Core(CorePluginBase):
         #  library. I took this approach because it meant I did not have
         #  to modify much code in the localbff library to accomplish this.
         from common import match 
-        positive_matches = match(
+        matcher = match(
           fastVerification=True,
           metafilePath=metafile_path,
           potentialMatches=potential_matches
@@ -322,27 +322,24 @@ class Core(CorePluginBase):
 
         # If all files are positively matched, then the torrent should be
         #  relinked and set to a seeding state.
-        rename_struct = []
         all_files_positively_matched = True
-        i = 0
-        for matched_path in positive_matches:
-          if matched_path is None:
+        for f in matcher.files:
+          if f.status != "MATCH_FOUND":
             all_files_positively_matched = False
-          
-          rename_struct.append((i, matched_path))
-          i += 1
-
-        if all_files_positively_matched:
-          print("Positive matches for all files!")
-          self._relink(current_torrent, rename_struct)
 
         # If there is some file that is not fully matched, then we must check
         #  the default action as specified by the user.
-        elif self.config['defaultAction'] == 0:
-          print("Some files had no positive matches. Seeding the matches, downloading the rest")
-          # 0 corresponds to Downloading the missing while seeding the present
-          positive_matches = [match for match in rename_struct if match[1] is not None]
-          self._relink(current_torrent, positive_matches)
+        if all_files_positively_matched or self.config['defaultAction'] == 0:
+          if all_files_positively_matched: print("Positive matches for all files!")
+          else: print("Some files had no positive matches."
+                      " Seeding the matches, downloading the rest")
+
+          matcher.relink(current_torrent.get_options()['download_location'])
+          
+          print("Forcing recheck...")
+          current_torrent.force_recheck()
+          print("Resuming torrent...")
+          current_torrent.resume()
 
         elif self.config['defaultAction'] == 1:
           print("Some files had no positive matches. Deleting torrent.")
@@ -351,47 +348,3 @@ class Core(CorePluginBase):
         elif self.config['defaultAction'] == 2:
           print("Some files had no positive matches. Pausing torrent.")
           current_torrent.pause()
-
-
-    def _relink(self, current_torrent, matches):
-        download_location = current_torrent.get_options()['download_location']
-
-        renaming_struct = []
-        for index, match in matches:
-          # A call to current_torrent.rename_file() requires the new relative
-          #  path of the payload file. Since matched_path may be on some
-          #  other hard drive, a relative path from the root/download path
-          #  of the torrent needs to be constructed and fed into rename_file()
-          renamed_path = os.path.relpath(match, download_location)
-          print('Match path: {0}'.format(renamed_path))
-          renaming_struct.append((index, renamed_path))
-
-          # For some reason, renaming of a payload file will be rejected if
-          #  the file exists. So let's move the found file so it disappears.
-          print("Moving to {0}".format(match + "_localbff_tmp_move"))
-          os.rename(
-            match,
-            match + "_localbff_tmp_move"
-          )
-
-        # Apply the renamings and force a recheck on the torrent
-        print("Pausing torrent...")
-        current_torrent.pause()
-        print("Renaming files... {0}".format(renaming_struct))
-        current_torrent.rename_files(renaming_struct)
-
-        # Since the files were moved temporarily to allow for renaming,
-        #  they must be moved back before the force recheck is executed.
-        for i, match in matches:
-            print("Moving back to {0}".format(match))
-            os.rename(
-              match + "_localbff_tmp_move",
-              match
-            )
-
-        print("Forcing recheck...")
-        current_torrent.force_recheck()
-        print("Resuming torrent...")
-        current_torrent.resume()
-
-
