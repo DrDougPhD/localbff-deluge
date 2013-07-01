@@ -39,7 +39,7 @@
 #    statement from all source files in the program, then also delete it here.
 #
 import os
-__version__ = "LocalBFF: 29 June 2013 22:22pm"
+__version__ = "LocalBFF: 1 July 2013 09:07am"
 print(__version__)
 print(os.path.abspath(__file__))
 from deluge.log import LOG as log
@@ -278,47 +278,17 @@ class Core(CorePluginBase):
         for f in files:
           potential_matches[f['index']] = self.cache.getAllFilesOfSize(f['size'])
 
-        # 2. Build the LocalBitTorrentFileFinder object.
-
-        #######################################################################
-        # The following code is a hack. It should be fixed.
-        #
-        #  In order to get the information stored in the metafile, it is
-        #   written to the disk as a .torrent file.
-        current_torrent.write_torrentfile()
-
-        #  The absolute path of the file is then grabbed. From some naive
-        #   experiments, I found out that when write_torrentfile() is called,
-        #   the torrent file is written into the following directory:
-        #     deluge.configmanager.get_config_dir()/state/
-        #   This directory is stored in the variable metafile_dir below.
-        import os
-        metafile_dir = os.path.join(
-            deluge.configmanager.get_config_dir(),
-            "state"
-        )
-
-        #  The metafile is named TORRENT_ID.torrent, and is stored in the
-        #   directory specified above.
-        metafile_path = os.path.join(
-          metafile_dir,
-          "{0}.torrent".format(torrent_id)
-        )
-
-        # With the metafile path known, it can be passed into the match()
-        #  function, which is a top-level entrance into the localbff
-        #  library. I took this approach because it meant I did not have
-        #  to modify much code in the localbff library to accomplish this.
+        # 2. Call LocalBFF to match the files
+        metafile_dict = {"info": deluge.bencode.bdecode(current_torrent.torrent_info.metadata())}
+        print("Bencoded metafile obtained. Passing on to LocalBFF.")
         from common import match 
         matcher = match(
           fastVerification=True,
-          metafilePath=metafile_path,
+          metafileDict=metafile_dict,
           potentialMatches=potential_matches
         )
-        #
-        # The hack above is stupid, but it works. I (or someone) needs
-        #  to correct it.
-        #######################################################################
+        print("#"*80)
+        print("Matching complete!")
 
         # If all files are positively matched, then the torrent should be
         #  relinked and set to a seeding state.

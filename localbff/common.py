@@ -214,17 +214,14 @@ class ContentDirectoryCache:
     if os.path.exists(LOCALBFF_CACHE_FILE):
       # The cache already exists on disk, so load it into memory.
       print("Cache already exists on disk. Loading into memory.")
-      print("##################################################")
       from StringIO import StringIO
       file_con = sqlite3.connect(LOCALBFF_CACHE_FILE)
       tempfile = StringIO()
       for line in file_con.iterdump():
         l = "{0}\n".format(line)
-        print(l)
         tempfile.write(l)
       file_con.close()
       tempfile.seek(0)
-      print("##################################################")
 
       # Create a database in memory and import from tempfile
       cursor.executescript(tempfile.read())
@@ -329,53 +326,53 @@ class ContentDirectoryCache:
 import json
 
 def getPayloadFilesFromMetafileDict(metafileDict):
-  module_logger.debug("Extracting file information from metafile dictionary")
+  print("Extracting file information from metafile dictionary")
   files = []
   payloadDirectory = metafileDict['info']['name'].decode('utf-8')
   
   if isSingleFileMetafile(metafileDict):
-    module_logger.debug('Metafile is in single-file mode')
+    print('Metafile is in single-file mode')
 
     filename = payloadDirectory
-    module_logger.debug("  Filename => " + filename)
+    print("  Filename => " + filename)
 
     size = metafileDict['info']['length']
-    module_logger.debug("  Filesize => " + str(size) + " Bytes")
+    print("  Filesize => " + str(size) + " Bytes")
     
     files.append( PayloadFile(path="", filename=filename, size=size, streamOffset=0) )
   
   else:
-    module_logger.debug('Metafile is in multi-file mode')
+    print('Metafile is in multi-file mode')
     
     numberOfFiles = len(metafileDict['info']['files'])
-    module_logger.debug('Total files => ' + str(numberOfFiles))
+    print('Total files => ' + str(numberOfFiles))
     
     currentStreamOffset = 0
     for i in range(0, numberOfFiles):
-      module_logger.debug("START: Decoding file #" + str(i+1))
+      print("START: Decoding file #" + str(i+1))
 
       currentFile = metafileDict['info']['files'][i]
-      module_logger.debug("  JSON => \n" + json.dumps(currentFile, indent=2))
+      print("  JSON => \n" + json.dumps(currentFile, indent=2))
 
       path = os.path.join(payloadDirectory, *currentFile['path'][:-1])
-      module_logger.debug("  Path => " + path )
+      print("  Path => " + path )
 
       filename = currentFile['path'][-1].decode('utf-8')
-      module_logger.debug("  Filename => " + filename )
+      print("  Filename => " + filename )
 
       size = currentFile['length']
-      module_logger.debug("  Filesize => " + str(size) )
+      print("  Filesize => " + str(size) )
 
       index = i
       streamOffset = currentStreamOffset
-      module_logger.debug("  Payload offset => " + str(streamOffset) + " Bytes")
+      print("  Payload offset => " + str(streamOffset) + " Bytes")
       
       files.append( PayloadFile(path=path, filename=filename, size=size, streamOffset=streamOffset, index=index+1) )
       
-      module_logger.debug("END: Decoding file #" + str(i+1))
+      print("END: Decoding file #" + str(i+1))
       currentStreamOffset += size
   
-  module_logger.debug("File information decoding complete!")
+  print("File information decoding complete!")
   return files
 
 class PayloadFile:
@@ -759,20 +756,28 @@ def getMetafileFromBencodedData( bencodedData ):
   metainfoDict = bencode.bdecode( bencodedData )
 
   pruned = prunedMetainfoDict(metainfoDict)
-  module_logger.debug('Decoded metainfo content =>\n' +
-    json.dumps(pruned, indent=2, ensure_ascii=False))
+  module_logger.debug('Decoded metainfo content =>\n{0}'.format(
+    json.dumps(pruned, indent=2, ensure_ascii=False)))
 
+  print("Decoding metafile dictionary")
   return getMetafileFromDict( pruned )
 
 def getMetafileFromDict( metafileDict ):
   module_logger.debug("Converting metafile dictionary to BitTorrentMetafile object")
+  print("Decoding files")
   files = getPayloadFilesFromMetafileDict( metafileDict )
+  print("Decoding pieces")
   pieces = getPiecesFromMetafileDict( metafileDict, files )
+  print("Decoding piece size")
   pieceSize = getPieceSizeFromDict(metafileDict)
+  print("Decoding final piece size")
   finalPieceSize = getFinalPieceSizeFromDict(metafileDict)
+  print("Decoding number of pieces")
   numberOfPieces = getNumberOfPiecesFromDict(metafileDict)
+  print("Decoding payload size")
   payloadSize = getPayloadSizeFromMetafileDict( metafileDict )
-  
+
+  print("Constructing metafile object")
   metafile = BitTorrentMetafile(
     files=files,
     pieces=pieces,
@@ -824,25 +829,17 @@ class BitTorrentMetafile:
 ###############################################################################
 ### LocalBitTorrentFileFinder.py
 class LocalBitTorrentFileFinder:
-  def __init__(self, metafilePath, fastVerification=False):
-    self.metafilePath = metafilePath
+  def __init__(self, metafile=None, fastVerification=False):
     self.doFastVerification = fastVerification
 
     self.logger = logging.getLogger(__name__)
     self.logger.info("LocalBitTorrentFileFinder initialized")
-    self.logger.info("  Metafile path     => " + metafilePath)
-    self.logger.info("  Fast verification => " + str(fastVerification))
+    self.logger.info("  Fast verification => {0}".format(fastVerification))
     
-    self.metafile = None
+    self.metafile = metafile
     self.files = None
     self.percentageMatched = 0.0
-  
-  def processMetafile(self):
-    self.logger.info("""
-Processing metainfo file
-------------------------""")
-    
-    self.metafile = getMetafileFromPath(self.metafilePath)
+
 
   def connectPayloadFileToPotentialMatches(self, fileIndex, potentialMatches):
     self.logger.info("""
@@ -852,7 +849,7 @@ Connecting payload file to potential matches
       self.files = self.metafile.files
 
     payloadFile = self.files[fileIndex]
-    self.logger.info("For " + payloadFile.__str__())
+    self.logger.info("For {0}".format(payloadFile))
     payloadFile.possibleMatches = potentialMatches
       
     self.logger.info("  Number of Possible matches => " + str(len(payloadFile.possibleMatches)))
@@ -955,9 +952,11 @@ Matching files in the file system to files in metafile
     self.createPayloadSymbolicLinks(directory)
 
 
-def match(fastVerification, metafilePath, potentialMatches):
-  finder = LocalBitTorrentFileFinder(metafilePath, fastVerification)
-  finder.processMetafile()
+def match(fastVerification, metafileDict, potentialMatches):
+  print("Decoding metafile")
+  metafile = getMetafileFromDict(metafileDict)
+  print("Initializing finder")
+  finder = LocalBitTorrentFileFinder(metafile, fastVerification)
   
   i = 0
   for f in potentialMatches:
