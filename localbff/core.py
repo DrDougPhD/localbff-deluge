@@ -181,7 +181,20 @@ class Core(CorePluginBase):
             now > self.config['minAge'] + new_metafile_statuses['time_added']
         )
         if (new_metafile_statuses['is_seed'] or new_metafile_statuses['is_finished'] or is_metafile_older_than_minAge):
-            print("Metafile ID# {0} ignored".format(torrent_id))
+            if new_metafile_statuses['is_seed']:
+              reason_for_ignoring_metafile = "Payload is already seeding."
+            elif new_metafile_statuses['is_finished']:
+              reason_for_ignoring_metafile = "Payload is finished downloading."
+            elif is_metafile_older_than_minAge:
+              reason_for_ignoring_metafile = (
+                  "Metafile was added more than {0} seconds ago.".format(
+                      self.config['minAge']
+                  )
+              )
+
+            print("Metafile ID# {0} ignored: {1}".format(
+                torrent_id, reason_for_ignoring_metafile
+            ))
 
         else:
             # Get the filenames and file sizes of each payload file
