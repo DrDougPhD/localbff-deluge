@@ -1,4 +1,3 @@
-__version__ = "LocalBFF: 1 July 2013 11:52am"
 #
 # core.py
 #
@@ -44,14 +43,12 @@ from deluge.plugins.pluginbase import CorePluginBase
 import deluge.component as component
 import deluge.configmanager
 from deluge.core.rpcserver import export
-from common import getAllFilesInContentDirectories
-from common import match
+from deluge import bencode
 import time
 
-#from deluge import log as deluge_logging
-# This will be available soon.
-# log = deluge_logging.getPluginLogger('LocalBFF')
 import logging
+from localbff import __version__ as lib_version
+__version__ = "LocalBFF-Deluge: 2 July 2013 2:36pm, using LocalBFF v{0}".format(lib_version)
 log = logging.getLogger(__name__)
 log.info(__version__)
 
@@ -74,15 +71,46 @@ DEFAULT_PREFS = {
 # Default Actions are as follows:
 DEFAULT_ACTIONS = [
   "Download Missing Payload, Seed the Rest",
-  "Delete BitTorrent",
-  "Pause Download"
+  "Delete BitTorrent Metafile from Queue",
+  "Pause Download in Queue"
 ]
 
+LOCALBFF_CACHE_FILENAME = "localbff_cache.db"
+LOCALBFF_CACHE_FILE = os.path.join(
+    deluge.configmanager.get_config_dir(),
+    LOCALBFF_CACHE_FILENAME
+)
+
+from localbff import metafile
+from localbff.localbff import LocalBitTorrentFileFinder
+def match(fastVerification, metafileDict, potentialMatches):
+  current_metafile = metafile.getMetafileFromDict(metafileDict)
+  finder = LocalBitTorrentFileFinder(current_metafile, fastVerification)
+  
+  i = 0
+  for f in potentialMatches:
+    finder.connectPayloadFileToPotentialMatches(i, f)
+    i += 1
+
+  finder.positivelyMatchFilesInMetafileToPossibleMatches()
+  return finder
+
+
+from localbff import cache
 class Core(CorePluginBase):
     def enable(self):
         log.info('LocalBFF enabled.')
-        self.config = deluge.configmanager.ConfigManager("localbff.conf", DEFAULT_PREFS)
-        self.cache = getAllFilesInContentDirectories(self.config['contentDirectories'])
+        self.config = deluge.configmanager.ConfigManager(
+            "localbff.conf",
+            DEFAULT_PREFS
+        )
+        self.cache = cache.load(
+            dirs=self.config['contentDirectories'],
+            persistent_path=LOCALBFF_CACHE_FILE
+        )
+
+        # When a new metafile is added to Deluge's queue, execute the
+        #  add_new_metafile(id) function of this plugin.
         component.get("EventManager").register_event_handler(
             "TorrentAddedEvent",
             self.add_new_metafile
@@ -90,6 +118,8 @@ class Core(CorePluginBase):
 
 
     def disable(self):
+        # When this plugin is disabled, do not call its add_new_metafile
+        #  function anymore.
         component.get("EventManager").deregister_event_handler(
             "TorrentAddedEvent",
             self.add_new_metafile
@@ -137,6 +167,7 @@ class Core(CorePluginBase):
           self.cache.removeDirectory(dir_to_remove)
           self.config.save()
 
+
     @export
     def edit_directory(self, old_dir, new_dir):
         """Edit the value of the provided directory"""
@@ -159,18 +190,22 @@ class Core(CorePluginBase):
     @export
     def set_default_action(self, default_action_id):
         """Set the ID of the default action"""
-        log.info("Default action updated to {0}".format(DEFAULT_PREFS[default_action_id]))
+        log.info("Default action updated to: {0}".format(
+            DEFAULT_PREFS[default_action_id]
+        ))
         self.config['defaultAction'] = default_action_id
         self.config.save()
+
 
     @export
     def get_default_action(self):
         return self.config['defaultAction']
 
+
     @export
     def update_cache(self):
         log.info("Cache updating...")
-        self.cache = getAllFilesInContentDirectories(self.config['contentDirectories'])
+        self.cache.refresh(dirs=self.config['contentDirectories'])
         log.info("Cache update complete")
 
 
@@ -179,12 +214,10 @@ class Core(CorePluginBase):
         #  If no potential matches exist, proceed with the default action.
         now = time.time()
         log.debug("New metafile added: {0} at {1}".format(torrent_id, now))
+
         torrent_manager = component.get("Core").torrentmanager
         current_torrent = torrent_manager.torrents[torrent_id]
         time_added = current_torrent.get_status(['time_added'])['time_added']
-        # ['is_finished', 'is_seed', 'paused',
-        #  'time_added': 1372535519.22622 ]
-        # is_in_seeding_state = current_torrent.get_status(['is_seed'])['is_seed']
 
         # If a metafile is already in a seeding state, or is
         #  already finished, or is older than minAge in seconds,
@@ -213,13 +246,12 @@ class Core(CorePluginBase):
             ))
 
         else:
-            # Get the filenames and file sizes of each payload file
-            files = current_torrent.get_files()
-
-            # Iterate through these files, and query the cache for potential
-            #  matches.
+            # Iterate through the files of the current metafile, and query
+            #  the cache for potential matches.
             some_files_have_no_potential_matches = False
-            for f in files:
+            for f in current_torrent.get_files():
+                # Potential matches to a payload file are those files on
+                #  the hard drive that are the same size.
                 potential_matches = self.cache.getAllFilesOfSize(f['size'])
                 num_pot_matches = len(potential_matches)
                 if num_pot_matches == 0:
@@ -253,16 +285,14 @@ class Core(CorePluginBase):
     @export
     def find_potential_matches(self, torrent_id):
         log.debug("Finding potential matches for Torrent ID#{0}".format(torrent_id))
+
         # Grab the torrent from the torrent manager
         current_torrent = component.get("Core").torrentmanager.torrents[torrent_id]
 
-        # Get the filenames and file sizes of each payload file
-        files = current_torrent.get_files()
+        # Iterate through the payload files of the current torrent, and
+        #  query the cache for potential matches.
         potential_match_data = {}
-        
-        # Iterate through these files, and query the cache for potential
-        #  matches.
-        for f in files:
+        for f in current_torrent.get_files():
             potential_matches = self.cache.getAllFilesOfSize(f['size'])
             potential_match_data[f['path']] = len(potential_matches)
 
@@ -290,9 +320,8 @@ class Core(CorePluginBase):
           potential_matches[f['index']] = self.cache.getAllFilesOfSize(f['size'])
 
         # 2. Call LocalBFF to match the files
-        metafile_dict = {"info": deluge.bencode.bdecode(current_torrent.torrent_info.metadata())}
-        log.debug("Bencoded metafile obtained. Passing on to LocalBFF.")
-        from common import match 
+        metafile_dict = {"info": bencode.bdecode(current_torrent.torrent_info.metadata())}
+        log.debug("Metafile data obtained. Passing on to LocalBFF.")
         matcher = match(
           fastVerification=True,
           metafileDict=metafile_dict,
@@ -355,6 +384,10 @@ class Core(CorePluginBase):
         if common_subdirectory:
             # Move the storage location of the current torrent to the common
             #  subdirectory.
+            log.info("Changing storage directory from {0} to {1}".format(
+                current_torrent.get_options()['download_location'],
+                common_subdirectory
+            ))
             current_torrent.move_storage(common_subdirectory)
 
             # Each file in the current torrent must now be reconnected if
@@ -380,8 +413,8 @@ class Core(CorePluginBase):
           #  other hard drive, a relative path from the root/download path
           #  of the torrent needs to be constructed and fed into rename_file()
           rel_path = match[rel_path_index:]
-          print("Actual path   := {0}".format(match))
-          print("Relative path := {0}".format(rel_path))
+          log.info("Actual path   := {0}".format(match))
+          log.info("Relative path := {0}".format(rel_path))
           renaming_struct.append((index, rel_path))
 
           # For some reason, renaming of a payload file will be rejected if

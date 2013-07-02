@@ -44,7 +44,7 @@ from setuptools import setup
 __plugin_name__ = "LocalBFF"
 __author__ = "Doug McGeehan"
 __author_email__ = "djmvfb@mst.edu"
-__version__ = "0.3a1"
+__version__ = "0.3a2"
 __url__ = "https://bitbucket.org/dougmcgeehan/localbff-deluge"
 __license__ = "PSF"
 __description__ = "Hot, sexy, local BFFs want you to reseed your shit."
