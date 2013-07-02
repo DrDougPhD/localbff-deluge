@@ -910,6 +910,7 @@ Matching files in the file system to files in metafile
         )
 
         # Make the symbolic link
+        # NOTE: this won't work with Windows. Maybe try this for Windows: http://stackoverflow.com/a/1447651/412495
         self.logger.info("Creating link: {0} => {1}".format(abs_path, actual_file))
         os.symlink(actual_file, abs_path)
 
